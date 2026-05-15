@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+{% block title %}Detail Lowongan — RUMAH KARIR{% endblock %}
+{% block content %}
+<section class="container section">
+  <div id="loading" class="muted">Memuat lowongan…</div>
+  <div id="error" class="alert error" style="display:none;"></div>
+  <div id="content" style="display:none;">
+    <div class="job-detail">
+      <div class="panel">
+        <h1 id="job-title" style="margin:0 0 6px;"></h1>
+        <div class="muted" id="job-meta"></div>
+        <div class="skills" id="job-skills" style="margin:14px 0;"></div>
+        <div id="locked-banner" class="alert" style="display:none;">
+          🔒 Untuk melihat <strong>detail lengkap perusahaan dan deskripsi pekerjaan</strong>,
+          silakan <a href="/login">login</a> terlebih dahulu.
+        </div>
+        <div id="job-body"></div>
+      </div>
+      <div class="panel" id="company-panel">
+        <h3 style="margin-top:0;">Tentang Perusahaan</h3>
+        <div id="company-body"></div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+const jobId = {{ job_id|int }};
+(async function () {
+  const { ok, data } = await window.api('/api/jobs/' + jobId);
+  document.getElementById('loading').style.display = 'none';
+  if (!ok || !data || !data.item) {
+    const err = document.getElementById('error');
+    err.style.display = '';
+    err.textContent = (data && data.error) || 'Gagal memuat lowongan';
+    return;
+  }
+  const j = data.item;
+  document.getElementById('content').style.display = '';
+  document.getElementById('job-title').textContent = j.title;
+  document.getElementById('job-meta').textContent = `${j.company_name} • ${j.city || '-'}, ${j.province || ''} ${j.country || ''}`.replace(/\s+/g,' ').trim();
+  document.getElementById('job-skills').innerHTML = (j.skills || '').split(',').filter(Boolean).map(s => `<span class="skill">${window.escapeHtml(s.trim())}</span>`).join('');
+
+  if (j._locked) {
+    document.getElementById('locked-banner').style.display = '';
+    document.getElementById('job-body').innerHTML = `<div class="locked-blur"><p>Login untuk melihat deskripsi lengkap dan kebutuhan posisi ini, termasuk benefit, syarat, dan informasi gaji.</p><p>Anda juga akan bisa upload CV dan dicocokkan otomatis dengan posisi serupa.</p></div>`;
+    document.getElementById('company-body').innerHTML = `<div class="locked-blur">Profil perusahaan, jumlah karyawan, tahun berdiri, dan info kontak hanya untuk pengguna terdaftar.</div>`;
+    return;
+  }
+  document.getElementById('job-body').innerHTML = `
+    <h3>Deskripsi</h3>
+    <p>${window.escapeHtml(j.description || '-')}</p>
+    <h3>Persyaratan</h3>
+    <p>${window.escapeHtml(j.requirements || '-')}</p>
+    <p class="muted">Tipe: ${window.escapeHtml(j.employment_type || '-')} • Pengalaman min: ${j.min_experience || 0} tahun • Usia: ${j.min_age || '-'}–${j.max_age || '-'}</p>
+    <p class="muted">Gaji: ${j.salary_min ? window.formatRp(j.salary_min) + ' – ' + window.formatRp(j.salary_max) : 'Negosiasi'}</p>
+  `;
+  document.getElementById('company-body').innerHTML = `
+    <div style="font-weight:700;">${window.escapeHtml(j.company_name)}</div>
+    <div class="muted">${window.escapeHtml(j.industry || '')}</div>
+    <p>${window.escapeHtml(j.company_description || '')}</p>
+    <p class="muted">Karyawan: ${window.escapeHtml(j.employees || '-')} • Berdiri: ${j.founded_year || '-'}</p>
+    ${j.website ? `<p><a href="${window.escapeHtml(j.website)}" target="_blank" rel="noopener">Website</a></p>` : ''}
+    <p class="muted">${window.escapeHtml(j.address || '')}</p>
+  `;
+})();
+</script>
+{% endblock %}

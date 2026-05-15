@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Bagikan Pengalaman — RUMAH KARIR{% endblock %}
+{% block content %}
+<section class="container section">
+  <h1>Bagikan Pengalaman Anda</h1>
+  <p class="muted">Cerita Anda akan tampil di halaman utama dan menjadi inspirasi bagi pencari kerja lain.</p>
+  <form id="exp-form" style="max-width:600px;">
+    <div class="form-row">
+      <label>Judul (opsional)</label>
+      <input name="title" type="text" maxlength="120" />
+    </div>
+    <div class="form-row">
+      <label>Rating Pengalaman (1–5)</label>
+      <select name="rating">
+        <option value="5">★★★★★</option>
+        <option value="4">★★★★☆</option>
+        <option value="3">★★★☆☆</option>
+        <option value="2">★★☆☆☆</option>
+        <option value="1">★☆☆☆☆</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Cerita Anda</label>
+      <textarea name="body" rows="6" required minlength="10" placeholder="Bagaimana pengalaman Anda menggunakan RUMAH KARIR?"></textarea>
+    </div>
+    <div id="exp-msg"></div>
+    <button class="btn" type="submit">Bagikan</button>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('exp-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.currentTarget);
+  const body = Object.fromEntries(fd.entries());
+  const { ok, data } = await window.api('/api/experiences', { method: 'POST', body });
+  const msg = document.getElementById('exp-msg');
+  if (!ok || !data || !data.ok) {
+    msg.innerHTML = `<div class="alert error">${window.escapeHtml((data && data.error) || 'Gagal membagikan')}</div>`;
+    return;
+  }
+  msg.innerHTML = '<div class="alert success">Terima kasih! Cerita Anda telah dibagikan.</div>';
+  setTimeout(() => window.location.href = '/', 1200);
+});
+</script>
+{% endblock %}

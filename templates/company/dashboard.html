@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard Perusahaan — RUMAH KARIR{% endblock %}
+{% block content %}
+<section class="container section">
+  <div class="flex between center">
+    <div>
+      <h1 id="cname" style="margin:0;">Perusahaan Anda</h1>
+      <div class="muted" id="cindustry"></div>
+    </div>
+    <a class="btn" href="/company/post-job">+ Pasang Lowongan</a>
+  </div>
+  <h2 style="margin-top:24px;">Lowongan Anda</h2>
+  <div class="card" style="padding:0;overflow-x:auto;">
+    <table class="table">
+      <thead><tr><th>Judul</th><th>Lokasi</th><th>Skill</th><th>Status</th><th>Aksi</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+async function load() {
+  const me = await window.api('/api/company/me');
+  if (me.data && me.data.company) {
+    document.getElementById('cname').textContent = me.data.company.name;
+    document.getElementById('cindustry').textContent = me.data.company.industry || '';
+  }
+  const { data } = await window.api('/api/company/jobs');
+  document.getElementById('rows').innerHTML = (data.items || []).map(j => `
+    <tr>
+      <td>${window.escapeHtml(j.title)}</td>
+      <td>${window.escapeHtml(j.city || '-')}, ${window.escapeHtml(j.country || '-')}</td>
+      <td>${(j.skills||'').split(',').slice(0,4).map(s => `<span class="skill">${window.escapeHtml(s.trim())}</span>`).join(' ')}</td>
+      <td>${j.is_active ? '<span class="badge ok">Aktif</span>' : '<span class="badge bad">Off</span>'}</td>
+      <td><button class="btn danger small" data-del="${j.id}" type="button">Hapus</button></td>
+    </tr>
+  `).join('') || `<tr><td colspan="5" class="muted" style="padding:20px;">Belum ada lowongan.</td></tr>`;
+  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Hapus lowongan?')) return;
+    await window.api('/api/company/jobs/' + b.dataset.del, { method: 'DELETE' });
+    load();
+  }));
+}
+load();
+</script>
+{% endblock %}

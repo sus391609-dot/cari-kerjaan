@@ -1,0 +1,106 @@
+{% extends 'admin/_base.html' %}
+{% set active = 'companies' %}
+{% block title %}Perusahaan — Admin{% endblock %}
+{% block content %}
+<h1>Manage Perusahaan</h1>
+<div class="toolbar">
+  <input id="search" type="text" placeholder="Cari nama / industri / kota" />
+  <button class="btn ghost" id="btn-search" type="button">🔍 Search</button>
+  <button class="btn" id="btn-new" type="button">+ New</button>
+</div>
+<div class="card" style="padding:0; overflow-x:auto;">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Logo</th><th>Nama</th><th>Industri</th><th>Kota</th><th>Negara</th>
+        <th>Approved</th><th>Search</th><th style="width:1%">Aksi</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function load() {
+  const q = document.getElementById('search').value.trim();
+  const { data } = await window.api('/api/admin/companies?q=' + encodeURIComponent(q));
+  const tbody = document.getElementById('rows');
+  tbody.innerHTML = (data.items || []).map(c => `
+    <tr data-id="${c.id}">
+      <td>${c.logo_path ? `<img class="thumb" src="/static/${window.escapeHtml(c.logo_path)}">` : '—'}</td>
+      <td>${window.escapeHtml(c.name)}</td>
+      <td>${window.escapeHtml(c.industry || '-')}</td>
+      <td>${window.escapeHtml(c.city || '-')}</td>
+      <td>${window.escapeHtml(c.country || '-')}</td>
+      <td>${c.is_approved ? '<span class="badge ok">YES</span>' : '<span class="badge bad">NO</span>'}</td>
+      <td>${c.search_count}</td>
+      <td>
+        <button class="btn ghost small" data-edit="${c.id}" type="button">Edit</button>
+        <button class="btn danger small" data-del="${c.id}" type="button">Hapus</button>
+      </td>
+    </tr>
+  `).join('');
+  tbody.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openForm(b.dataset.edit)));
+  tbody.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => del(b.dataset.del)));
+}
+
+document.getElementById('btn-search').addEventListener('click', load);
+document.getElementById('search').addEventListener('keydown', (e) => { if (e.key === 'Enter') load(); });
+
+async function del(id) {
+  if (!confirm('Hapus perusahaan ini? Semua lowongannya juga akan hilang.')) return;
+  await window.api('/api/admin/companies/' + id, { method: 'DELETE' });
+  load();
+}
+
+function openForm(id) {
+  const isNew = !id;
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal">
+      <h2>${isNew ? 'Tambah' : 'Edit'} Perusahaan</h2>
+      <form id="cform" enctype="multipart/form-data">
+        <div class="form-row"><label>Nama</label><input name="name" required /></div>
+        <div class="form-grid cols-2">
+          <div><label>Industri</label><input name="industry" /></div>
+          <div><label>Website</label><input name="website" /></div>
+        </div>
+        <div class="form-grid cols-2">
+          <div><label>Kota</label><input name="city" /></div>
+          <div><label>Provinsi</label><input name="province" /></div>
+        </div>
+        <div class="form-grid cols-2">
+          <div><label>Negara</label><input name="country" value="Indonesia" /></div>
+          <div><label>Jumlah karyawan</label><input name="employees" /></div>
+        </div>
+        <div class="form-row"><label>Alamat</label><input name="address" /></div>
+        <div class="form-row"><label>Deskripsi</label><textarea name="description" rows="3"></textarea></div>
+        <div class="form-grid cols-2">
+          <div><label>Logo</label><input type="file" name="logo" accept="image/*" /></div>
+          <div><label>Tahun berdiri</label><input name="founded_year" type="number" /></div>
+        </div>
+        <div class="actions">
+          <button type="button" class="btn ghost" id="cancel">Batal</button>
+          <button type="submit" class="btn">Simpan</button>
+        </div>
+      </form>
+    </div>
+  `;
+  root.classList.add('open');
+  document.getElementById('cancel').onclick = () => root.classList.remove('open');
+  document.getElementById('cform').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const url = isNew ? '/api/admin/companies' : '/api/admin/companies/' + id;
+    const method = isNew ? 'POST' : 'PUT';
+    const res = await fetch(url, { method, body: fd, credentials: 'same-origin' });
+    if (res.ok) { root.classList.remove('open'); load(); }
+    else { alert('Gagal menyimpan'); }
+  });
+}
+
+document.getElementById('btn-new').addEventListener('click', () => openForm(null));
+load();
+</script>
+{% endblock %}

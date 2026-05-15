@@ -1,0 +1,42 @@
+{% extends 'admin/_base.html' %}
+{% set active = 'dashboard' %}
+{% block title %}Dashboard Admin — RUMAH KARIR{% endblock %}
+{% block content %}
+<h1>Dashboard</h1>
+<div class="dash-stats">
+  <div class="stat"><div class="num" id="s-users">—</div><div class="lbl">Total User</div></div>
+  <div class="stat"><div class="num" id="s-verified">—</div><div class="lbl">User Terverifikasi</div></div>
+  <div class="stat"><div class="num" id="s-companies">—</div><div class="lbl">Perusahaan Aktif</div></div>
+  <div class="stat"><div class="num" id="s-pending">—</div><div class="lbl">Menunggu Approval</div></div>
+  <div class="stat"><div class="num" id="s-jobs">—</div><div class="lbl">Lowongan Aktif</div></div>
+  <div class="stat"><div class="num" id="s-partners">—</div><div class="lbl">Mitra Kerja Sama</div></div>
+  <div class="stat"><div class="num" id="s-exps">—</div><div class="lbl">Pengalaman User</div></div>
+  <div class="stat"><div class="num" id="s-maint">—</div><div class="lbl">Status Maintenance</div></div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">Aksi Cepat</h3>
+  <div class="flex gap-8" style="flex-wrap:wrap;">
+    <a class="btn" href="/admin/companies">+ Tambah / Cari Perusahaan</a>
+    <a class="btn ghost" href="/admin/jobs">+ Tambah / Cari Lowongan</a>
+    <a class="btn ghost" href="/admin/approvals">Lihat Approval Perusahaan</a>
+    <a class="btn ghost" href="/admin/maintenance">Toggle Maintenance</a>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(async function () {
+  const { data } = await window.api('/api/admin/stats');
+  if (!data) return;
+  document.getElementById('s-users').textContent = data.users;
+  document.getElementById('s-verified').textContent = data.verified_users;
+  document.getElementById('s-companies').textContent = data.companies;
+  document.getElementById('s-pending').textContent = data.pending_companies;
+  document.getElementById('s-jobs').textContent = data.jobs;
+  document.getElementById('s-partners').textContent = data.partners;
+  document.getElementById('s-exps').textContent = data.experiences;
+  document.getElementById('s-maint').textContent = data.maintenance ? 'AKTIF' : 'Nonaktif';
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends 'admin/_base.html' %}
+{% set active = 'jobs' %}
+{% block title %}Lowongan — Admin{% endblock %}
+{% block content %}
+<h1>Manage Lowongan</h1>
+<div class="toolbar">
+  <input id="search" type="text" placeholder="Cari judul / perusahaan / skill" />
+  <button class="btn ghost" id="btn-search" type="button">🔍 Search</button>
+  <button class="btn" id="btn-new" type="button">+ New Lowongan</button>
+</div>
+<div class="card" style="padding:0; overflow-x:auto;">
+  <table class="table">
+    <thead>
+      <tr><th>Judul</th><th>Perusahaan</th><th>Lokasi</th><th>Skill</th><th>Aksi</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function loadCompanies() {
+  const { data } = await window.api('/api/admin/companies');
+  return data.items || [];
+}
+async function load() {
+  const q = document.getElementById('search').value.trim();
+  const { data } = await window.api('/api/admin/jobs?q=' + encodeURIComponent(q));
+  document.getElementById('rows').innerHTML = (data.items || []).map(j => `
+    <tr>
+      <td>${window.escapeHtml(j.title)}</td>
+      <td>${window.escapeHtml(j.company_name)}</td>
+      <td>${window.escapeHtml(j.city || '-')}, ${window.escapeHtml(j.country || '-')}</td>
+      <td><div class="skills">${(j.skills||'').split(',').slice(0,4).filter(Boolean).map(s=>`<span class="skill">${window.escapeHtml(s.trim())}</span>`).join('')}</div></td>
+      <td><button class="btn danger small" data-del="${j.id}" type="button">Hapus</button></td>
+    </tr>
+  `).join('');
+  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Hapus lowongan ini?')) return;
+    await window.api('/api/admin/jobs/' + b.dataset.del, { method: 'DELETE' });
+    load();
+  }));
+}
+document.getElementById('btn-search').addEventListener('click', load);
+document.getElementById('search').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
+
+document.getElementById('btn-new').addEventListener('click', async () => {
+  const companies = await loadCompanies();
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal">
+      <h2>Tambah Lowongan</h2>
+      <form id="jform">
+        <div class="form-row">
+          <label>Perusahaan</label>
+          <select name="company_id" required>${companies.map(c => `<option value="${c.id}">${window.escapeHtml(c.name)}</option>`).join('')}</select>
+        </div>
+        <div class="form-row"><label>Judul</label><input name="title" required /></div>
+        <div class="form-row"><label>Deskripsi</label><textarea name="description" rows="3"></textarea></div>
+        <div class="form-row"><label>Persyaratan</label><textarea name="requirements" rows="3"></textarea></div>
+        <div class="form-row"><label>Skill (pisah koma)</label><input name="skills" placeholder="python, sql, docker" /></div>
+        <div class="form-grid cols-2">
+          <div><label>Tipe Kerja</label><input name="employment_type" value="Full-time" /></div>
+          <div><label>Min Pengalaman (tahun)</label><input name="min_experience" type="number" value="0" /></div>
+        </div>
+        <div class="form-grid cols-2">
+          <div><label>Negara</label><input name="country" value="Indonesia" /></div>
+          <div><label>Provinsi</label><input name="province" /></div>
+        </div>
+        <div class="form-grid cols-2">
+          <div><label>Kota</label><input name="city" /></div>
+          <div><label>Min Umur</label><input name="min_age" type="number" /></div>
+        </div>
+        <div class="form-grid cols-2">
+          <div><label>Max Umur</label><input name="max_age" type="number" /></div>
+          <div><label>Gaji Min</label><input name="salary_min" type="number" /></div>
+        </div>
+        <div class="form-row"><label>Gaji Max</label><input name="salary_max" type="number" /></div>
+        <div class="actions">
+          <button type="button" class="btn ghost" id="cancel">Batal</button>
+          <button type="submit" class="btn">Simpan</button>
+        </div>
+      </form>
+    </div>
+  `;
+  root.classList.add('open');
+  document.getElementById('cancel').onclick = () => root.classList.remove('open');
+  document.getElementById('jform').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(e.currentTarget).entries());
+    const { ok } = await window.api('/api/admin/jobs', { method: 'POST', body });
+    if (ok) { root.classList.remove('open'); load(); } else alert('Gagal menyimpan');
+  });
+});
+
+load();
+</script>
+{% endblock %}

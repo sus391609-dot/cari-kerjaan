@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}Cari Lowongan — RUMAH KARIR{% endblock %}
+{% block content %}
+<section class="hero" style="padding-top:32px; padding-bottom:18px;">
+  <div class="container">
+    <h1 style="font-size:28px;">Cari Lowongan Kerja</h1>
+    <p>Filter berdasarkan negara, provinsi, dan kota.</p>
+    <form class="search-card" id="filter-form">
+      <input class="span-2" name="q" type="text" placeholder="Posisi / Perusahaan / Skill" />
+      <select name="country">
+        <option value="">Semua negara</option>
+        <option value="Indonesia">Indonesia</option>
+        <option value="Singapore">Singapore</option>
+        <option value="Australia">Australia</option>
+        <option value="Worldwide">Luar Negeri</option>
+      </select>
+      <select name="province" id="province-select">
+        <option value="">Semua provinsi</option>
+      </select>
+      <input name="city" type="text" placeholder="Kota (opsional)" />
+      <button class="btn" type="submit">Cari</button>
+    </form>
+  </div>
+</section>
+
+<section class="container section">
+  <div id="jobs-grid" class="grid"></div>
+  <div id="jobs-empty" class="muted" style="display:none; padding:24px;">Tidak ada lowongan ditemukan.</div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+const me = {{ user|tojson|safe if user else 'null' }};
+
+async function loadProvinces() {
+  const { data } = await window.api('/api/locations/provinces');
+  const sel = document.getElementById('province-select');
+  (data.items || []).forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p; opt.textContent = p; sel.appendChild(opt);
+  });
+}
+
+function readParams() {
+  const usp = new URLSearchParams(window.location.search);
+  const form = document.getElementById('filter-form');
+  for (const el of form.elements) {
+    if (el.name && usp.get(el.name)) el.value = usp.get(el.name);
+  }
+  return usp;
+}
+
+function renderJobs(items) {
+  const grid = document.getElementById('jobs-grid');
+  const empty = document.getElementById('jobs-empty');
+  if (!items.length) {
+    grid.innerHTML = '';
+    empty.style.display = '';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = items.map(j => {
+    const locked = j._locked;
+    return `
+      <div class="card">
+        <div class="title">${window.escapeHtml(j.title)}</div>
+        <div class="meta">${window.escapeHtml(j.company_name)} • ${window.escapeHtml(j.city || '-')}, ${window.escapeHtml(j.country || '-')}</div>
+        <div class="skills">
+          ${(j.skills || '').split(',').slice(0,5).filter(Boolean).map(s => `<span class="skill">${window.escapeHtml(s.trim())}</span>`).join('')}
+        </div>
+        <div class="muted">${j.salary_min ? window.formatRp(j.salary_min) + ' – ' + window.formatRp(j.salary_max) : 'Gaji negosiasi'}</div>
+        <div class="flex between center" style="margin-top:8px;">
+          <span class="badge">${window.escapeHtml(j.employment_type || '-')}</span>
+          <a class="btn small ghost" href="/jobs/${j.id}">Lihat Selengkapnya</a>
+        </div>
+        ${locked ? `<div class="muted" style="font-size:12px;">🔒 Login untuk melihat detail lengkap perusahaan</div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+async function search(e) {
+  if (e) e.preventDefault();
+  const usp = new URLSearchParams(new FormData(document.getElementById('filter-form')));
+  history.replaceState(null, '', '/jobs?' + usp.toString());
+  const { data } = await window.api('/api/jobs?' + usp.toString());
+  renderJobs((data && data.items) || []);
+}
+
+(async function () {
+  await loadProvinces();
+  readParams();
+  document.getElementById('filter-form').addEventListener('submit', search);
+  await search();
+})();
+</script>
+{% endblock %}

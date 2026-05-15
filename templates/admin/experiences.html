@@ -1,0 +1,38 @@
+{% extends 'admin/_base.html' %}
+{% set active = 'experiences' %}
+{% block title %}Pengalaman User — Admin{% endblock %}
+{% block content %}
+<h1>Pengalaman dari User</h1>
+<div class="card" style="padding:0; overflow-x:auto;">
+  <table class="table">
+    <thead>
+      <tr><th>User</th><th>Email</th><th>Rating</th><th>Judul</th><th>Cerita</th><th>Tanggal</th><th>Aksi</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function load() {
+  const { data } = await window.api('/api/admin/experiences');
+  document.getElementById('rows').innerHTML = (data.items || []).map(e => `
+    <tr>
+      <td>${window.escapeHtml(e.full_name || '-')}</td>
+      <td>${window.escapeHtml(e.email)}</td>
+      <td>${'★'.repeat(e.rating)}${'☆'.repeat(5-e.rating)}</td>
+      <td>${window.escapeHtml(e.title || '-')}</td>
+      <td style="max-width:400px;">${window.escapeHtml(e.body)}</td>
+      <td>${window.escapeHtml(e.created_at)}</td>
+      <td><button class="btn danger small" data-del="${e.id}" type="button">Hapus</button></td>
+    </tr>
+  `).join('') || `<tr><td colspan="7" class="muted" style="padding:20px;">Belum ada pengalaman.</td></tr>`;
+  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Hapus pengalaman ini?')) return;
+    await window.api('/api/admin/experiences/' + b.dataset.del, { method: 'DELETE' });
+    load();
+  }));
+}
+load();
+</script>
+{% endblock %}

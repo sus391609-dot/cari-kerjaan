@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block title %}Daftar — RUMAH KARIR{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="auth-card">
+    <h1>Buat Akun</h1>
+    <p class="muted" style="margin-top:-12px;">Daftar sebagai pengguna untuk mencari kerja, atau sebagai perusahaan untuk memasang lowongan.</p>
+    <div class="auth-toggle" role="tablist">
+      <button type="button" id="tab-user" class="active" data-role="user">Sebagai Pengguna</button>
+      <button type="button" id="tab-company" data-role="company">Sebagai Perusahaan</button>
+    </div>
+    <form id="reg-form" enctype="multipart/form-data">
+      <input type="hidden" name="role" id="reg-role" value="user" />
+
+      <div id="user-fields">
+        <div class="form-row">
+          <label>Nama Lengkap (asli)</label>
+          <input name="full_name" type="text" required />
+        </div>
+        <div class="form-grid cols-2">
+          <div>
+            <label>Tanggal Lahir</label>
+            <input name="birth_date" type="date" required />
+          </div>
+          <div>
+            <label>Username (opsional)</label>
+            <input name="username" type="text" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Foto Profil</label>
+          <input name="photo" type="file" accept="image/png,image/jpeg,image/webp" required />
+        </div>
+      </div>
+
+      <div id="company-fields" style="display:none;">
+        <div class="form-row">
+          <label>Nama Perusahaan</label>
+          <input name="company_name" type="text" />
+        </div>
+        <div class="form-grid cols-2">
+          <div>
+            <label>Industri</label>
+            <input name="industry" type="text" placeholder="e.g. E-commerce" />
+          </div>
+          <div>
+            <label>Website</label>
+            <input name="website" type="text" placeholder="https://..." />
+          </div>
+        </div>
+        <div class="form-grid cols-2">
+          <div>
+            <label>Provinsi</label>
+            <input name="province" type="text" />
+          </div>
+          <div>
+            <label>Kota</label>
+            <input name="city" type="text" />
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Alamat</label>
+          <input name="address" type="text" />
+        </div>
+        <div class="form-row">
+          <label>Deskripsi singkat perusahaan</label>
+          <textarea name="description" rows="3"></textarea>
+        </div>
+        <div class="form-row">
+          <label>Logo (opsional)</label>
+          <input name="logo" type="file" accept="image/png,image/jpeg,image/webp" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Email</label>
+        <input name="email" type="email" required />
+      </div>
+      <div class="form-row">
+        <label>Password (min 6 karakter)</label>
+        <input name="password" type="password" minlength="6" required />
+      </div>
+      <div id="reg-msg"></div>
+      <button class="btn" type="submit" style="width:100%;">Daftar</button>
+    </form>
+    <p class="muted" style="text-align:center; margin-top:14px;">
+      Sudah punya akun? <a href="/login">Login</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const tabUser = document.getElementById('tab-user');
+const tabCo = document.getElementById('tab-company');
+const userFields = document.getElementById('user-fields');
+const coFields = document.getElementById('company-fields');
+const roleInput = document.getElementById('reg-role');
+function setRole(r) {
+  roleInput.value = r;
+  if (r === 'company') {
+    tabUser.classList.remove('active'); tabCo.classList.add('active');
+    userFields.style.display = 'none'; coFields.style.display = '';
+    userFields.querySelectorAll('[required]').forEach(el => el.required = false);
+    coFields.querySelectorAll('input[name="company_name"],input[name="industry"],input[name="city"]').forEach(el => el.required = true);
+  } else {
+    tabCo.classList.remove('active'); tabUser.classList.add('active');
+    userFields.style.display = ''; coFields.style.display = 'none';
+    coFields.querySelectorAll('[required]').forEach(el => el.required = false);
+    userFields.querySelectorAll('input[name="full_name"],input[name="birth_date"],input[name="photo"]').forEach(el => el.required = true);
+  }
+}
+tabUser.addEventListener('click', () => setRole('user'));
+tabCo.addEventListener('click', () => setRole('company'));
+
+document.getElementById('reg-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('reg-msg');
+  msg.innerHTML = '';
+  const form = e.currentTarget;
+  const fd = new FormData(form);
+  const res = await fetch('/api/auth/register', { method: 'POST', body: fd, credentials: 'same-origin' });
+  let data = null; try { data = await res.json(); } catch (_) {}
+  if (!res.ok || !data || !data.ok) {
+    msg.innerHTML = `<div class="alert error">${window.escapeHtml((data && data.error) || 'Pendaftaran gagal')}</div>`;
+    return;
+  }
+  msg.innerHTML = `<div class="alert success">${window.escapeHtml(data.message)}</div>`;
+  setTimeout(() => {
+    window.location.href = '/verify-otp?email=' + encodeURIComponent(data.email);
+  }, 800);
+});
+</script>
+{% endblock %}

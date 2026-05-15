@@ -1,0 +1,36 @@
+{% extends 'admin/_base.html' %}
+{% set active = 'maintenance' %}
+{% block title %}Maintenance — Admin{% endblock %}
+{% block content %}
+<h1>Mode Maintenance</h1>
+<p class="muted">Jika diaktifkan, semua halaman tidak dapat dibuka kecuali oleh admin.</p>
+<div class="card">
+  <div class="flex between center">
+    <div>
+      <div style="font-weight:700;">Status saat ini: <span id="status">—</span></div>
+      <div class="muted" id="hint">Klik tombol untuk mengubah.</div>
+    </div>
+    <button class="btn" id="toggle" type="button">Memuat…</button>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function refresh() {
+  const { data } = await window.api('/api/admin/maintenance');
+  const enabled = data && data.enabled;
+  document.getElementById('status').textContent = enabled ? 'AKTIF' : 'NONAKTIF';
+  document.getElementById('toggle').textContent = enabled ? 'Nonaktifkan' : 'Aktifkan Maintenance';
+  document.getElementById('toggle').className = enabled ? 'btn danger' : 'btn';
+  document.getElementById('hint').textContent = enabled
+    ? 'Situs tidak dapat diakses oleh user biasa. Hanya admin yang bisa.'
+    : 'Situs berjalan normal.';
+}
+document.getElementById('toggle').addEventListener('click', async () => {
+  const status = document.getElementById('status').textContent === 'AKTIF';
+  await window.api('/api/admin/maintenance', { method: 'POST', body: { enabled: !status } });
+  refresh();
+});
+refresh();
+</script>
+{% endblock %}

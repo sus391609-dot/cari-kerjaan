@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Admin — RUMAH KARIR{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" />
+  {% block head %}{% endblock %}
+</head>
+<body>
+<div class="dash">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="logo-mark">RK</span>
+      <span>ADMIN</span>
+    </div>
+    <nav>
+      <a href="/admin" class="{% if active == 'dashboard' %}active{% endif %}">📊 Dashboard</a>
+      <a href="/admin/companies" class="{% if active == 'companies' %}active{% endif %}">🏢 Perusahaan</a>
+      <a href="/admin/jobs" class="{% if active == 'jobs' %}active{% endif %}">📝 Lowongan</a>
+      <a href="/admin/approvals" class="{% if active == 'approvals' %}active{% endif %}">✅ Approval Perusahaan</a>
+      <a href="/admin/users" class="{% if active == 'users' %}active{% endif %}">👥 Manage User</a>
+      <a href="/admin/partners" class="{% if active == 'partners' %}active{% endif %}">🤝 Kerja Sama</a>
+      <a href="/admin/experiences" class="{% if active == 'experiences' %}active{% endif %}">💬 Pengalaman</a>
+      <a href="/admin/maintenance" class="{% if active == 'maintenance' %}active{% endif %}">🛠️ Maintenance</a>
+      <a href="/" style="margin-top:18px; border-top:1px solid #333; padding-top:18px;">↩︎ Kembali ke Situs</a>
+      <a href="/logout">Logout</a>
+    </nav>
+  </aside>
+  <div>
+    <div class="mobile-bar">
+      <div style="font-weight:700;">RUMAH KARIR Admin</div>
+      <button class="hamburger" id="open-sidebar" type="button">☰</button>
+    </div>
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+<div class="modal-backdrop" id="modal-root"></div>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+<script>
+const sb = document.getElementById('sidebar');
+const open = document.getElementById('open-sidebar');
+if (open && sb) open.addEventListener('click', () => sb.classList.toggle('open'));
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

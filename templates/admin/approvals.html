@@ -1,0 +1,48 @@
+{% extends 'admin/_base.html' %}
+{% set active = 'approvals' %}
+{% block title %}Approval Perusahaan — Admin{% endblock %}
+{% block content %}
+<h1>Approval Pendaftaran Perusahaan</h1>
+<p class="muted">Perusahaan yang baru daftar harus disetujui di sini sebelum dapat login dan memposting lowongan.</p>
+<div class="card" style="padding:0; overflow-x:auto;">
+  <table class="table">
+    <thead>
+      <tr><th>Logo</th><th>Nama</th><th>Industri</th><th>Email Pemilik</th><th>Kota</th><th>Deskripsi</th><th>Aksi</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function load() {
+  const { data } = await window.api('/api/admin/pending-companies');
+  const rows = (data.items || []);
+  document.getElementById('rows').innerHTML = rows.length ? rows.map(c => `
+    <tr>
+      <td>${c.logo_path ? `<img class="thumb" src="/static/${window.escapeHtml(c.logo_path)}">` : '—'}</td>
+      <td>${window.escapeHtml(c.name || '-')}</td>
+      <td>${window.escapeHtml(c.industry || '-')}</td>
+      <td>${window.escapeHtml(c.email)}</td>
+      <td>${window.escapeHtml(c.city || '-')}</td>
+      <td style="max-width:300px;">${window.escapeHtml(c.description || '-')}</td>
+      <td>
+        <button class="btn small" data-approve="${c.user_id}" type="button">Setujui</button>
+        <button class="btn danger small" data-reject="${c.user_id}" type="button">Tolak</button>
+      </td>
+    </tr>
+  `).join('') : `<tr><td colspan="7" class="muted" style="padding:20px;">Tidak ada permintaan pendaftaran perusahaan.</td></tr>`;
+
+  document.querySelectorAll('[data-approve]').forEach(b => b.addEventListener('click', async () => {
+    await window.api('/api/admin/users/' + b.dataset.approve + '/approve', { method: 'POST' });
+    load();
+  }));
+  document.querySelectorAll('[data-reject]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Tolak & hapus pendaftaran perusahaan ini?')) return;
+    await window.api('/api/admin/users/' + b.dataset.reject, { method: 'DELETE' });
+    load();
+  }));
+}
+load();
+</script>
+{% endblock %}
