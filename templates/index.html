@@ -33,7 +33,11 @@
     <h2 style="margin:0;">RUMAH KARIR di Seluruh Indonesia</h2>
     <span class="muted" id="region-status">Klik provinsi untuk filter</span>
   </div>
-  <div class="id-map">
+  <div class="id-map reveal-scale">
+    <div class="map-legend">
+      <span class="legend-dot"></span>
+      <span>Sorot provinsi untuk efek glow · klik untuk memfilter lowongan</span>
+    </div>
     <object id="id-map-svg" type="image/svg+xml" data="{{ url_for('static', filename='img/indonesia-map.svg') }}" aria-label="Peta Indonesia"></object>
   </div>
 </section>
