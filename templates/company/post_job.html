@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block title %}Pasang Lowongan — RUMAH KARIR{% endblock %}
+{% block content %}
+<section class="container section">
+  <h1>Pasang Lowongan</h1>
+  <form id="form" class="card" style="max-width:760px;">
+    <div class="form-row"><label>Judul Lowongan</label><input name="title" required /></div>
+    <div class="form-row"><label>Deskripsi</label><textarea name="description" rows="4"></textarea></div>
+    <div class="form-row"><label>Persyaratan</label><textarea name="requirements" rows="3"></textarea></div>
+    <div class="form-row"><label>Skill (pisah koma)</label><input name="skills" placeholder="python, sql, docker" /></div>
+    <div class="form-grid cols-2">
+      <div><label>Tipe</label><input name="employment_type" value="Full-time" /></div>
+      <div><label>Min Pengalaman (tahun)</label><input name="min_experience" type="number" value="0" /></div>
+    </div>
+    <div class="form-grid cols-2">
+      <div><label>Negara</label><input name="country" value="Indonesia" /></div>
+      <div><label>Provinsi</label><input name="province" /></div>
+    </div>
+    <div class="form-grid cols-2">
+      <div><label>Kota</label><input name="city" /></div>
+      <div><label>Tipe Usia (min)</label><input name="min_age" type="number" /></div>
+    </div>
+    <div class="form-grid cols-2">
+      <div><label>Tipe Usia (max)</label><input name="max_age" type="number" /></div>
+      <div><label>Gaji Min</label><input name="salary_min" type="number" /></div>
+    </div>
+    <div class="form-row"><label>Gaji Max</label><input name="salary_max" type="number" /></div>
+    <div id="msg"></div>
+    <button class="btn" type="submit">Simpan</button>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(e.currentTarget).entries());
+  const { ok, data } = await window.api('/api/company/jobs', { method: 'POST', body });
+  const msg = document.getElementById('msg');
+  if (!ok || !data || !data.ok) {
+    msg.innerHTML = `<div class="alert error">${window.escapeHtml((data && data.error) || 'Gagal menyimpan')}</div>`;
+    return;
+  }
+  msg.innerHTML = '<div class="alert success">Lowongan disimpan.</div>';
+  setTimeout(() => window.location.href = '/company', 700);
+});
+</script>
+{% endblock %}

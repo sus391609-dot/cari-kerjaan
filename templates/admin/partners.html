@@ -1,0 +1,51 @@
+{% extends 'admin/_base.html' %}
+{% set active = 'partners' %}
+{% block title %}Kerja Sama — Admin{% endblock %}
+{% block content %}
+<h1>Kerja Sama dengan Kami</h1>
+<p class="muted">Unggah gambar logo mitra. Akan tampil di halaman utama pada bagian "Kerja Sama dengan Kami".</p>
+<form id="pform" enctype="multipart/form-data" class="card">
+  <div class="form-grid cols-2">
+    <div><label>Nama (opsional)</label><input name="name" /></div>
+    <div><label>Link (opsional)</label><input name="link" placeholder="https://..." /></div>
+  </div>
+  <div class="form-row" style="margin-top:10px;">
+    <label>Gambar (png/jpg/webp)</label>
+    <input type="file" name="image" accept="image/*" required />
+  </div>
+  <button class="btn" type="submit">+ Tambah Mitra</button>
+</form>
+
+<h2 style="margin-top:24px;">Daftar Mitra</h2>
+<div class="grid" id="grid"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function load() {
+  const { data } = await window.api('/api/partners');
+  const grid = document.getElementById('grid');
+  grid.innerHTML = (data.items || []).map(p => `
+    <div class="card" style="align-items:center;">
+      <img src="/static/${window.escapeHtml(p.image_path)}" style="max-height:80px;object-fit:contain;" />
+      <div class="meta">${window.escapeHtml(p.name || '-')}</div>
+      ${p.link ? `<a class="muted" href="${window.escapeHtml(p.link)}" target="_blank" rel="noopener">${window.escapeHtml(p.link)}</a>` : ''}
+      <button class="btn danger small" data-del="${p.id}" type="button">Hapus</button>
+    </div>
+  `).join('') || '<div class="muted">Belum ada mitra.</div>';
+  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Hapus mitra ini?')) return;
+    await window.api('/api/admin/partners/' + b.dataset.del, { method: 'DELETE' });
+    load();
+  }));
+}
+
+document.getElementById('pform').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.currentTarget);
+  const res = await fetch('/api/admin/partners', { method: 'POST', body: fd, credentials: 'same-origin' });
+  if (res.ok) { e.currentTarget.reset(); load(); } else alert('Gagal mengunggah');
+});
+
+load();
+</script>
+{% endblock %}

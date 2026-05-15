@@ -1,0 +1,211 @@
+{% extends 'base.html' %}
+{% block title %}RUMAH KARIR — Temukan karir impian Anda{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="container">
+    <h1>Temukan pekerjaan impian Anda di RUMAH KARIR</h1>
+    <p>Cari lowongan di Indonesia & luar negeri. Upload CV untuk pencocokan otomatis dengan perusahaan yang sedang membuka lowongan.</p>
+    <div id="search-root"></div>
+  </div>
+</section>
+
+<section class="section container">
+  <div class="flex between center" style="margin-bottom:14px;">
+    <h2 style="margin:0;">Lowongan Terbaru</h2>
+    <a class="btn ghost" href="/jobs">Lihat semua</a>
+  </div>
+  <div id="latest-jobs" class="grid"></div>
+</section>
+
+<section class="section container">
+  <h2>Top 10 Perusahaan Membuka Banyak Lowongan</h2>
+  <div id="top-openings" class="grid"></div>
+</section>
+
+<section class="section container">
+  <h2>Perusahaan Paling Banyak Dicari</h2>
+  <div id="top-searched" class="grid"></div>
+</section>
+
+<section class="section container">
+  <div class="flex between center" style="margin-bottom:14px;">
+    <h2 style="margin:0;">RUMAH KARIR di Seluruh Indonesia</h2>
+    <span class="muted" id="region-status">Klik provinsi untuk filter</span>
+  </div>
+  <div class="id-map">
+    <object id="id-map-svg" type="image/svg+xml" data="{{ url_for('static', filename='img/indonesia-map.svg') }}" aria-label="Peta Indonesia"></object>
+  </div>
+</section>
+
+<section class="section container">
+  <h2>Statistik Komunitas</h2>
+  <div class="stats-row" id="stats-row">
+    <div class="stat"><div class="num" id="stat-users">—</div><div class="lbl">Akun Pengguna Terdaftar</div></div>
+    <div class="stat"><div class="num" id="stat-companies">—</div><div class="lbl">Perusahaan Terdaftar</div></div>
+    <div class="stat"><div class="num" id="stat-jobs">—</div><div class="lbl">Lowongan Aktif</div></div>
+  </div>
+</section>
+
+<section class="section container">
+  <h2>Kerja Sama dengan Kami</h2>
+  <p class="muted">Mitra dan kolaborator yang mempercayai RUMAH KARIR.</p>
+  <div class="partners-strip" id="partners-strip"></div>
+</section>
+
+<section class="section container">
+  <div class="flex between center" style="margin-bottom:14px;">
+    <h2 style="margin:0;">Pengalaman Pengguna</h2>
+    <a class="btn ghost" href="/share-experience">Bagikan Pengalaman Anda</a>
+  </div>
+  <div id="experiences" class="grid"></div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<!-- React (mini) for the homepage search engine. We deliberately use React from
+     CDN without a build step to keep the "little React" footprint minimal. -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel" data-presets="env,react">
+const { useState, useEffect } = React;
+
+function SearchEngine() {
+  const [q, setQ] = useState('');
+  const [country, setCountry] = useState('');
+  const [province, setProvince] = useState('');
+  const [city, setCity] = useState('');
+  const [provinces, setProvinces] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/locations/provinces').then(r => r.json()).then(d => setProvinces(d.items || []));
+  }, []);
+
+  function submit(e) {
+    e && e.preventDefault();
+    const params = new URLSearchParams();
+    if (q) params.set('q', q);
+    if (country) params.set('country', country);
+    if (province) params.set('province', province);
+    if (city) params.set('city', city);
+    window.location.href = '/jobs?' + params.toString();
+  }
+
+  return (
+    <form className="search-card" onSubmit={submit}>
+      <input className="span-2" type="text" placeholder="Cari posisi, perusahaan, atau skill (mis: Python, Backend)" value={q} onChange={e => setQ(e.target.value)} />
+      <select value={country} onChange={e => setCountry(e.target.value)}>
+        <option value="">Semua negara</option>
+        <option value="Indonesia">Indonesia</option>
+        <option value="Singapore">Singapore</option>
+        <option value="Australia">Australia</option>
+        <option value="Worldwide">Luar Negeri (Remote)</option>
+      </select>
+      <select value={province} onChange={e => setProvince(e.target.value)}>
+        <option value="">Semua provinsi</option>
+        {provinces.map(p => <option key={p} value={p}>{p}</option>)}
+      </select>
+      <input type="text" placeholder="Kota (opsional)" value={city} onChange={e => setCity(e.target.value)} />
+      <button className="btn" type="submit">Cari</button>
+    </form>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('search-root')).render(<SearchEngine />);
+</script>
+
+<script>
+(async function () {
+  const { data: jobsData } = await window.api('/api/jobs?per_page=8');
+  const root = document.getElementById('latest-jobs');
+  if (jobsData && jobsData.items) {
+    root.innerHTML = jobsData.items.map(j => `
+      <a class="card" href="/jobs/${j.id}">
+        <div class="title">${window.escapeHtml(j.title)}</div>
+        <div class="meta">${window.escapeHtml(j.company_name)} • ${window.escapeHtml(j.city || '-')}, ${window.escapeHtml(j.country || '-')}</div>
+        <div class="skills">
+          ${(j.skills || '').split(',').slice(0,4).filter(Boolean).map(s => `<span class="skill">${window.escapeHtml(s.trim())}</span>`).join('')}
+        </div>
+        <div class="muted" style="margin-top:6px;">${j.salary_min ? window.formatRp(j.salary_min) + ' – ' + window.formatRp(j.salary_max) : 'Gaji negosiasi'}</div>
+      </a>
+    `).join('');
+  }
+
+  const { data: tos } = await window.api('/api/companies/top-openings');
+  document.getElementById('top-openings').innerHTML = (tos.items || []).map(c => `
+    <div class="card">
+      <div class="title">${window.escapeHtml(c.name)}</div>
+      <div class="meta">${window.escapeHtml(c.industry || '-')}</div>
+      <div class="muted">${c.open_jobs} lowongan aktif</div>
+    </div>
+  `).join('');
+
+  const { data: tsr } = await window.api('/api/companies/top-searched');
+  document.getElementById('top-searched').innerHTML = (tsr.items || []).map(c => `
+    <div class="card">
+      <div class="title">${window.escapeHtml(c.name)}</div>
+      <div class="meta">${window.escapeHtml(c.industry || '-')}</div>
+      <div class="muted">${c.search_count} kali dilihat</div>
+    </div>
+  `).join('');
+
+  const { data: stats } = await window.api('/api/stats');
+  if (stats) {
+    document.getElementById('stat-users').textContent = stats.users || 0;
+    document.getElementById('stat-companies').textContent = stats.companies || 0;
+    document.getElementById('stat-jobs').textContent = stats.jobs || 0;
+  }
+
+  const { data: partners } = await window.api('/api/partners');
+  const ps = document.getElementById('partners-strip');
+  if (partners && partners.items && partners.items.length) {
+    ps.innerHTML = partners.items.map(p => `
+      <div class="partner-tile">
+        ${p.link ? `<a href="${window.escapeHtml(p.link)}" target="_blank" rel="noopener">` : ''}
+        <img alt="${window.escapeHtml(p.name || 'partner')}" src="/static/${window.escapeHtml(p.image_path)}" />
+        ${p.link ? `</a>` : ''}
+      </div>
+    `).join('');
+  } else {
+    ps.innerHTML = '<div class="muted" style="grid-column:1/-1;">Belum ada mitra. Admin dapat menambahkannya di dashboard.</div>';
+  }
+
+  const { data: exps } = await window.api('/api/experiences');
+  const ex = document.getElementById('experiences');
+  if (exps && exps.items && exps.items.length) {
+    ex.innerHTML = exps.items.map(e => `
+      <div class="card">
+        <div class="flex center gap-8">
+          ${e.photo_path ? `<img src="/static/${window.escapeHtml(e.photo_path)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" />` : ''}
+          <div>
+            <div class="title" style="font-size:14px;">${window.escapeHtml(e.full_name || 'User')}</div>
+            <div class="meta">Rating: ${'★'.repeat(e.rating)}${'☆'.repeat(5-e.rating)}</div>
+          </div>
+        </div>
+        ${e.title ? `<div style="font-weight:700;">${window.escapeHtml(e.title)}</div>` : ''}
+        <div>${window.escapeHtml(e.body)}</div>
+      </div>
+    `).join('');
+  } else {
+    ex.innerHTML = '<div class="muted" style="grid-column:1/-1;">Belum ada pengalaman dibagikan. Jadilah yang pertama!</div>';
+  }
+
+  // Map interactions
+  const mapObj = document.getElementById('id-map-svg');
+  if (mapObj) {
+    mapObj.addEventListener('load', () => {
+      const doc = mapObj.contentDocument;
+      if (!doc) return;
+      doc.querySelectorAll('.region').forEach(el => {
+        el.style.cursor = 'pointer';
+        el.addEventListener('click', () => {
+          const prov = el.getAttribute('data-province') || '';
+          window.location.href = '/jobs?province=' + encodeURIComponent(prov);
+        });
+      });
+    });
+  }
+})();
+</script>
+{% endblock %}

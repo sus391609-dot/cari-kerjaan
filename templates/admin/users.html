@@ -1,0 +1,82 @@
+{% extends 'admin/_base.html' %}
+{% set active = 'users' %}
+{% block title %}Manage User — Admin{% endblock %}
+{% block content %}
+<h1>Manage User</h1>
+<div class="toolbar">
+  <input id="search" type="text" placeholder="Cari email / nama / username" />
+  <button class="btn ghost" id="btn-search" type="button">🔍 Search</button>
+</div>
+<div class="card" style="padding:0; overflow-x:auto;">
+  <table class="table">
+    <thead>
+      <tr><th>Foto</th><th>Nama</th><th>Username</th><th>Email</th><th>Tgl Lahir</th><th>Role</th><th>Verified</th><th>Aksi</th></tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+async function load() {
+  const q = document.getElementById('search').value.trim();
+  const { data } = await window.api('/api/admin/users?q=' + encodeURIComponent(q));
+  document.getElementById('rows').innerHTML = (data.items || []).map(u => `
+    <tr data-id="${u.id}">
+      <td>${u.photo_path ? `<img class="thumb" src="/static/${window.escapeHtml(u.photo_path)}">` : '—'}</td>
+      <td>${window.escapeHtml(u.full_name || '-')}</td>
+      <td>${window.escapeHtml(u.username || '-')}</td>
+      <td>${window.escapeHtml(u.email)}</td>
+      <td>${window.escapeHtml(u.birth_date || '-')}</td>
+      <td><span class="badge">${u.role}</span></td>
+      <td>${u.is_verified ? '<span class="badge ok">YES</span>' : '<span class="badge bad">NO</span>'}</td>
+      <td>
+        <button class="btn ghost small" data-edit="${u.id}" type="button">Edit</button>
+        <button class="btn danger small" data-del="${u.id}" type="button">Hapus</button>
+      </td>
+    </tr>
+  `).join('');
+  document.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => openEdit(b.dataset.edit)));
+  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', async () => {
+    if (!confirm('Hapus user ini?')) return;
+    await window.api('/api/admin/users/' + b.dataset.del, { method: 'DELETE' });
+    load();
+  }));
+}
+document.getElementById('btn-search').addEventListener('click', load);
+document.getElementById('search').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
+
+function openEdit(id) {
+  const tr = document.querySelector(`tr[data-id="${id}"]`);
+  const tds = tr.querySelectorAll('td');
+  const initial = { full_name: tds[1].innerText.trim(), username: tds[2].innerText.trim(), email: tds[3].innerText.trim(), birth_date: tds[4].innerText.trim() === '-' ? '' : tds[4].innerText.trim() };
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `
+    <div class="modal">
+      <h2>Edit User</h2>
+      <form id="uform">
+        <div class="form-row"><label>Nama</label><input name="full_name" value="${window.escapeHtml(initial.full_name === '-' ? '' : initial.full_name)}" /></div>
+        <div class="form-row"><label>Username</label><input name="username" value="${window.escapeHtml(initial.username === '-' ? '' : initial.username)}" /></div>
+        <div class="form-row"><label>Email</label><input name="email" type="email" value="${window.escapeHtml(initial.email)}" /></div>
+        <div class="form-row"><label>Tanggal Lahir</label><input name="birth_date" type="date" value="${window.escapeHtml(initial.birth_date)}" /></div>
+        <div class="form-row"><label>Password baru (kosongkan jika tidak diubah)</label><input name="password" type="password" /></div>
+        <div class="actions">
+          <button type="button" class="btn ghost" id="cancel">Batal</button>
+          <button type="submit" class="btn">Simpan</button>
+        </div>
+      </form>
+    </div>
+  `;
+  root.classList.add('open');
+  document.getElementById('cancel').onclick = () => root.classList.remove('open');
+  document.getElementById('uform').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(e.currentTarget).entries());
+    if (!body.password) delete body.password;
+    const { ok } = await window.api('/api/admin/users/' + id, { method: 'PUT', body });
+    if (ok) { root.classList.remove('open'); load(); } else alert('Gagal menyimpan');
+  });
+}
+load();
+</script>
+{% endblock %}

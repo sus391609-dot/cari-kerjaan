@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Upload CV — RUMAH KARIR{% endblock %}
+{% block content %}
+<section class="container section">
+  <h1>Upload CV (PDF)</h1>
+  <p class="muted">Sistem akan mengekstrak skill, pengalaman, dan umur Anda lalu mencocokkan ke lowongan yang relevan.</p>
+  <form id="cv-form" enctype="multipart/form-data" style="max-width:480px;">
+    <div class="form-row">
+      <label>File CV (PDF, maks 16 MB)</label>
+      <input type="file" name="cv" accept="application/pdf" required />
+    </div>
+    <button class="btn" type="submit">Unggah & Cocokkan</button>
+  </form>
+  <div id="result" style="margin-top:18px;"></div>
+</section>
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('cv-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.currentTarget);
+  const res = await fetch('/api/cv/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+  let data = null; try { data = await res.json(); } catch (_) {}
+  const out = document.getElementById('result');
+  if (!res.ok || !data || !data.ok) {
+    out.innerHTML = `<div class="alert error">${window.escapeHtml((data && data.error) || 'Gagal memproses CV')}</div>`;
+    return;
+  }
+  const p = data.parsed;
+  let html = `
+    <div class="card">
+      <h3 style="margin:0 0 6px;">Hasil Analisis CV</h3>
+      <div><strong>Umur terdeteksi:</strong> ${p.age || '-'} tahun</div>
+      <div><strong>Pengalaman:</strong> ${p.experience_years || 0} tahun</div>
+      <div><strong>Skill terdeteksi:</strong> ${(p.skills || []).map(s => `<span class="skill">${window.escapeHtml(s)}</span>`).join(' ') || '<span class="muted">tidak terdeteksi</span>'}</div>
+    </div>
+  `;
+  if (!data.has_good_match) {
+    html += `
+      <div class="alert">
+        Kami tidak menemukan lowongan yang sangat cocok untuk profil Anda saat ini.
+        Untuk meningkatkan peluang, pertimbangkan untuk meningkatkan skill berikut:
+        <div class="skills" style="margin-top:8px;">
+          ${(data.suggestions || []).map(s => `<span class="skill">${window.escapeHtml(s)}</span>`).join(' ') || '<span class="muted">-</span>'}
+        </div>
+      </div>
+    `;
+  }
+  html += `<h2 style="margin-top:24px;">${data.has_good_match ? 'Lowongan yang cocok untuk Anda' : 'Lowongan yang masih bisa Anda coba'}</h2><div class="grid">`;
+  for (const m of (data.matches || [])) {
+    html += `
+      <a class="card" href="/jobs/${m.job_id}">
+        <div class="match-score">${m.score} / 100</div>
+        <div class="match-bar"><div class="fill" style="width:${m.score}%"></div></div>
+        <div class="title">${window.escapeHtml(m.job_title)}</div>
+        <div class="meta">${window.escapeHtml(m.company_name)}</div>
+        <div class="muted" style="font-size:12px;">Skill cocok: ${m.matched_skills.map(s => window.escapeHtml(s)).join(', ') || '-'}</div>
+        <div class="muted" style="font-size:12px;">Skill yang kurang: ${m.missing_skills.map(s => window.escapeHtml(s)).join(', ') || '-'}</div>
+      </a>
+    `;
+  }
+  html += '</div>';
+  out.innerHTML = html;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Verifikasi OTP — RUMAH KARIR{% endblock %}
+{% block content %}
+<div class="container">
+  <div class="auth-card">
+    <h1>Verifikasi OTP</h1>
+    <p class="muted" style="margin-top:-12px;">Masukkan kode 6 digit yang dikirim ke email Anda. Kode berlaku 10 menit.</p>
+    <form id="otp-form">
+      <div class="form-row">
+        <label>Email</label>
+        <input id="email" type="email" required />
+      </div>
+      <div class="form-row">
+        <label>Kode OTP</label>
+        <input id="code" type="text" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" required />
+      </div>
+      <div id="otp-msg"></div>
+      <button class="btn" type="submit" style="width:100%;">Verifikasi</button>
+    </form>
+    <p style="text-align:center; margin-top:12px;">
+      <button class="btn ghost small" id="resend-btn" type="button">Kirim ulang OTP</button>
+    </p>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+const params = new URLSearchParams(window.location.search);
+const emailField = document.getElementById('email');
+if (params.get('email')) emailField.value = params.get('email');
+
+document.getElementById('otp-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('otp-msg');
+  const body = {
+    email: emailField.value.trim(),
+    code: document.getElementById('code').value.trim(),
+  };
+  const { ok, data } = await window.api('/api/auth/verify-otp', { method: 'POST', body });
+  if (!ok || !data || !data.ok) {
+    msg.innerHTML = `<div class="alert error">${window.escapeHtml((data && data.error) || 'Verifikasi gagal')}</div>`;
+    return;
+  }
+  msg.innerHTML = `<div class="alert success">${window.escapeHtml(data.message)}</div>`;
+  setTimeout(() => window.location.href = '/login', 800);
+});
+
+document.getElementById('resend-btn').addEventListener('click', async () => {
+  const msg = document.getElementById('otp-msg');
+  const { data } = await window.api('/api/auth/resend-otp', { method: 'POST', body: { email: emailField.value.trim() } });
+  if (data && data.ok) {
+    msg.innerHTML = '<div class="alert success">Kode OTP baru dikirim.</div>';
+  } else {
+    msg.innerHTML = `<div class="alert error">${window.escapeHtml((data && data.error) || 'Gagal mengirim ulang')}</div>`;
+  }
+});
+</script>
+{% endblock %}
