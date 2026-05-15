@@ -1,77 +1,249 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 460" role="img" aria-label="Peta Indonesia">
-  <title>Peta Indonesia (representasi sederhana)</title>
-  <style><![CDATA[
-    .region { fill: #d1d5db; stroke: #ffffff; stroke-width: 1.2; transition: fill .2s; cursor: pointer; }
-    .region:hover { fill: #111111; }
-    .label { font-size: 11px; fill: #111111; font-weight: 700; pointer-events: none; }
-  ]]></style>
-  <!-- Simplified, schematic regions of Indonesia. Each region is clickable
-       and labelled with its province group. -->
-  <g font-family="-apple-system, Segoe UI, Roboto, Arial, sans-serif">
-    <!-- Sumatera -->
-    <path class="region" data-province="Sumatera Utara" d="M40,90 L150,70 L180,150 L120,210 L60,200 Z" />
-    <text class="label" x="100" y="150">Sumatera Utara</text>
-    <path class="region" data-province="Sumatera Selatan" d="M120,210 L230,180 L260,260 L180,300 L80,280 Z" />
-    <text class="label" x="170" y="240">Sumatera Selatan</text>
-    <path class="region" data-province="Lampung" d="M180,300 L280,280 L300,340 L210,360 Z" />
-    <text class="label" x="230" y="330">Lampung</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 520" role="img" aria-label="Peta Indonesia" preserveAspectRatio="xMidYMid meet">
+  <title>Peta Indonesia — RUMAH KARIR</title>
+  <defs>
+    <linearGradient id="regionFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#3a4150" />
+      <stop offset="100%" stop-color="#1c1f27" />
+    </linearGradient>
+    <linearGradient id="regionFillHover" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#c9cdd4" />
+    </linearGradient>
+    <radialGradient id="oceanGlow" cx="50%" cy="50%" r="60%">
+      <stop offset="0%"  stop-color="rgba(120,150,200,0.18)" />
+      <stop offset="100%" stop-color="rgba(0,0,0,0)" />
+    </radialGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3" />
+      <feOffset dx="0" dy="2" result="off" />
+      <feMerge>
+        <feMergeNode in="off" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="hoverGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="6" />
+      <feComponentTransfer><feFuncA type="linear" slope="1.0"/></feComponentTransfer>
+      <feMerge>
+        <feMergeNode />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <style><![CDATA[
+      .ocean { fill: url(#oceanGlow); }
+      .region {
+        fill: url(#regionFill);
+        stroke: #5b6473;
+        stroke-width: 1.0;
+        stroke-linejoin: round;
+        transition: fill .25s ease, stroke .25s ease, transform .25s ease, filter .25s ease;
+        cursor: pointer;
+        transform-origin: center;
+        transform-box: fill-box;
+      }
+      .region:hover {
+        fill: url(#regionFillHover);
+        stroke: #ffffff;
+        filter: drop-shadow(0 0 8px rgba(255,255,255,0.45));
+      }
+      .label {
+        font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+        font-size: 11px;
+        fill: #e6e8ed;
+        font-weight: 600;
+        pointer-events: none;
+        letter-spacing: .2px;
+      }
+      .label-sub {
+        font-size: 10px;
+        fill: #9aa0a8;
+        font-weight: 500;
+        pointer-events: none;
+      }
+      .island-dot {
+        fill: #c9cdd4;
+        opacity: .85;
+        pointer-events: none;
+      }
+      .gridline {
+        stroke: rgba(255,255,255,0.04);
+        stroke-width: .8;
+        stroke-dasharray: 2 4;
+      }
+    ]]></style>
+  </defs>
 
-    <!-- Java -->
-    <path class="region" data-province="DKI Jakarta" d="M300,340 L360,330 L370,360 L310,370 Z" />
-    <text class="label" x="320" y="355">DKI Jakarta</text>
-    <path class="region" data-province="Jawa Barat" d="M340,340 L430,330 L440,370 L350,380 Z" />
-    <text class="label" x="380" y="365">Jawa Barat</text>
-    <path class="region" data-province="Jawa Tengah" d="M430,330 L520,330 L530,370 L440,380 Z" />
-    <text class="label" x="470" y="360">Jawa Tengah</text>
-    <path class="region" data-province="DI Yogyakarta" d="M510,360 L555,355 L565,385 L515,388 Z" />
-    <text class="label" x="525" y="378">DIY</text>
-    <path class="region" data-province="Jawa Timur" d="M530,330 L630,330 L640,375 L540,385 Z" />
-    <text class="label" x="580" y="360">Jawa Timur</text>
+  <!-- Subtle ocean glow background -->
+  <rect class="ocean" x="0" y="0" width="1100" height="520" />
 
-    <!-- Bali / NTB / NTT -->
-    <path class="region" data-province="Bali" d="M640,355 L680,350 L685,375 L645,380 Z" />
-    <text class="label" x="655" y="370">Bali</text>
-    <path class="region" data-province="Nusa Tenggara Barat" d="M700,350 L760,345 L770,380 L705,385 Z" />
-    <text class="label" x="710" y="370">NTB</text>
-    <path class="region" data-province="Nusa Tenggara Timur" d="M780,350 L880,345 L890,390 L785,395 Z" />
-    <text class="label" x="810" y="375">NTT</text>
+  <!-- Decorative grid -->
+  <g>
+    <line class="gridline" x1="0" y1="130" x2="1100" y2="130"/>
+    <line class="gridline" x1="0" y1="260" x2="1100" y2="260"/>
+    <line class="gridline" x1="0" y1="390" x2="1100" y2="390"/>
+    <line class="gridline" x1="250"  y1="0" x2="250"  y2="520"/>
+    <line class="gridline" x1="500"  y1="0" x2="500"  y2="520"/>
+    <line class="gridline" x1="750"  y1="0" x2="750"  y2="520"/>
+  </g>
 
-    <!-- Kalimantan -->
-    <path class="region" data-province="Kalimantan Barat" d="M310,180 L420,170 L420,260 L320,270 Z" />
-    <text class="label" x="350" y="220">Kalimantan Barat</text>
-    <path class="region" data-province="Kalimantan Tengah" d="M420,170 L500,170 L510,260 L420,260 Z" />
-    <text class="label" x="445" y="220">Kalteng</text>
-    <path class="region" data-province="Kalimantan Selatan" d="M510,200 L570,200 L575,265 L510,260 Z" />
-    <text class="label" x="525" y="240">Kalsel</text>
-    <path class="region" data-province="Kalimantan Timur" d="M500,90 L590,90 L600,200 L510,200 Z" />
-    <text class="label" x="525" y="160">Kaltim</text>
+  <g filter="url(#softShadow)">
 
-    <!-- Sulawesi -->
-    <path class="region" data-province="Sulawesi Utara" d="M650,90 L720,90 L725,140 L660,150 Z" />
-    <text class="label" x="660" y="120">Sulawesi Utara</text>
-    <path class="region" data-province="Sulawesi Tengah" d="M650,150 L720,150 L725,220 L655,225 Z" />
-    <text class="label" x="660" y="190">Sulteng</text>
-    <path class="region" data-province="Sulawesi Selatan" d="M655,225 L720,220 L725,290 L660,290 Z" />
-    <text class="label" x="660" y="260">Sulsel</text>
+    <!-- ============================ SUMATERA ============================ -->
+    <path class="region" data-province="Aceh"
+          d="M50,90 L100,75 L130,95 L120,135 L85,150 L55,135 Z" />
+    <text class="label" x="58" y="118">Aceh</text>
 
-    <!-- Maluku -->
-    <path class="region" data-province="Maluku" d="M770,150 L830,150 L835,220 L775,225 Z" />
-    <text class="label" x="780" y="190">Maluku</text>
-    <path class="region" data-province="Maluku Utara" d="M770,90 L825,90 L830,140 L775,145 Z" />
-    <text class="label" x="780" y="120">Maluku Utara</text>
+    <path class="region" data-province="Sumatera Utara"
+          d="M110,135 L165,120 L185,155 L170,195 L130,205 L100,180 Z" />
+    <text class="label" x="115" y="168">Sumut</text>
 
-    <!-- Papua -->
-    <path class="region" data-province="Papua Barat" d="M850,150 L920,150 L925,230 L855,230 Z" />
-    <text class="label" x="860" y="195">Papua Barat</text>
-    <path class="region" data-province="Papua" d="M925,150 L990,150 L990,260 L925,260 Z" />
-    <text class="label" x="935" y="210">Papua</text>
+    <path class="region" data-province="Riau"
+          d="M165,165 L235,150 L250,195 L210,225 L175,215 Z" />
+    <text class="label" x="190" y="195">Riau</text>
 
-    <!-- Aceh -->
-    <path class="region" data-province="Aceh" d="M30,30 L90,40 L70,90 L20,80 Z" />
-    <text class="label" x="40" y="65">Aceh</text>
+    <path class="region" data-province="Sumatera Barat"
+          d="M130,205 L190,200 L205,240 L165,260 L135,245 Z" />
+    <text class="label" x="145" y="232">Sumbar</text>
 
-    <!-- Riau -->
-    <path class="region" data-province="Riau" d="M150,140 L240,130 L230,180 L140,200 Z" />
-    <text class="label" x="170" y="165">Riau</text>
+    <path class="region" data-province="Jambi"
+          d="M200,225 L260,220 L275,255 L230,275 L195,255 Z" />
+    <text class="label" x="215" y="252">Jambi</text>
+
+    <path class="region" data-province="Sumatera Selatan"
+          d="M205,265 L290,260 L305,310 L240,330 L195,300 Z" />
+    <text class="label" x="225" y="298">Sumsel</text>
+
+    <path class="region" data-province="Bengkulu"
+          d="M165,275 L210,275 L220,310 L180,325 L150,305 Z" />
+    <text class="label" x="165" y="305">Bengkulu</text>
+
+    <path class="region" data-province="Lampung"
+          d="M225,330 L305,320 L320,365 L275,385 L235,370 Z" />
+    <text class="label" x="245" y="358">Lampung</text>
+
+    <!-- ============================ JAWA ============================ -->
+    <path class="region" data-province="Banten"
+          d="M295,375 L345,372 L350,398 L305,402 Z" />
+    <text class="label" x="302" y="394">Banten</text>
+
+    <path class="region" data-province="DKI Jakarta"
+          d="M348,372 L385,370 L388,395 L350,397 Z" />
+    <text class="label" x="352" y="389">DKI</text>
+
+    <path class="region" data-province="Jawa Barat"
+          d="M385,372 L460,368 L468,400 L390,404 Z" />
+    <text class="label" x="405" y="392">Jawa Barat</text>
+
+    <path class="region" data-province="Jawa Tengah"
+          d="M460,370 L548,366 L556,402 L468,406 Z" />
+    <text class="label" x="480" y="392">Jawa Tengah</text>
+
+    <path class="region" data-province="DI Yogyakarta"
+          d="M530,398 L570,394 L578,418 L535,420 Z" />
+    <text class="label" x="538" y="413">DIY</text>
+
+    <path class="region" data-province="Jawa Timur"
+          d="M548,366 L645,364 L655,402 L556,406 Z" />
+    <text class="label" x="580" y="392">Jawa Timur</text>
+
+    <!-- ============================ BALI / NTB / NTT ============================ -->
+    <path class="region" data-province="Bali"
+          d="M660,390 L692,388 L696,408 L662,410 Z" />
+    <text class="label" x="665" y="403">Bali</text>
+
+    <path class="region" data-province="Nusa Tenggara Barat"
+          d="M705,388 L770,385 L778,412 L710,415 Z" />
+    <text class="label" x="720" y="404">NTB</text>
+
+    <path class="region" data-province="Nusa Tenggara Timur"
+          d="M790,388 L900,385 L908,418 L796,422 Z" />
+    <text class="label" x="820" y="408">NTT</text>
+
+    <!-- ============================ KALIMANTAN ============================ -->
+    <path class="region" data-province="Kalimantan Barat"
+          d="M310,180 L395,168 L420,235 L380,280 L320,275 Z" />
+    <text class="label" x="335" y="232">Kalbar</text>
+
+    <path class="region" data-province="Kalimantan Tengah"
+          d="M395,168 L490,170 L505,240 L420,260 L420,235 Z" />
+    <text class="label" x="430" y="220">Kalteng</text>
+
+    <path class="region" data-province="Kalimantan Selatan"
+          d="M490,210 L555,210 L560,270 L505,272 L500,240 Z" />
+    <text class="label" x="510" y="245">Kalsel</text>
+
+    <path class="region" data-province="Kalimantan Timur"
+          d="M490,108 L590,98 L605,210 L555,220 L495,205 Z" />
+    <text class="label" x="515" y="160">Kaltim</text>
+
+    <path class="region" data-province="Kalimantan Utara"
+          d="M495,55 L585,55 L590,98 L500,108 Z" />
+    <text class="label" x="515" y="82">Kaltara</text>
+
+    <!-- ============================ SULAWESI ============================ -->
+    <path class="region" data-province="Sulawesi Utara"
+          d="M680,100 L760,95 L770,140 L690,150 Z" />
+    <text class="label" x="692" y="125">Sulut</text>
+
+    <path class="region" data-province="Gorontalo"
+          d="M650,135 L700,135 L705,162 L660,168 Z" />
+    <text class="label" x="660" y="155">Gorontalo</text>
+
+    <path class="region" data-province="Sulawesi Tengah"
+          d="M650,170 L735,165 L745,225 L658,230 Z" />
+    <text class="label" x="670" y="202">Sulteng</text>
+
+    <path class="region" data-province="Sulawesi Barat"
+          d="M640,235 L685,230 L692,275 L648,280 Z" />
+    <text class="label" x="648" y="260">Sulbar</text>
+
+    <path class="region" data-province="Sulawesi Selatan"
+          d="M695,235 L745,230 L755,300 L700,305 Z" />
+    <text class="label" x="705" y="275">Sulsel</text>
+
+    <path class="region" data-province="Sulawesi Tenggara"
+          d="M758,240 L800,238 L808,290 L762,295 Z" />
+    <text class="label" x="765" y="270">Sultra</text>
+
+    <!-- ============================ MALUKU ============================ -->
+    <path class="region" data-province="Maluku Utara"
+          d="M810,90 L865,88 L872,138 L815,142 Z" />
+    <text class="label" x="818" y="120">Maluku Utara</text>
+
+    <path class="region" data-province="Maluku"
+          d="M820,170 L885,165 L890,230 L830,235 Z" />
+    <text class="label" x="830" y="205">Maluku</text>
+
+    <!-- ============================ PAPUA ============================ -->
+    <path class="region" data-province="Papua Barat"
+          d="M905,150 L975,148 L985,235 L915,240 Z" />
+    <text class="label" x="915" y="200">Papua Barat</text>
+
+    <path class="region" data-province="Papua"
+          d="M985,148 L1075,148 L1080,275 L995,275 Z" />
+    <text class="label" x="1005" y="220">Papua</text>
+
+    <!-- ============================ Decorative small islands ============================ -->
+    <circle class="island-dot" cx="380" cy="120" r="2.5"/>
+    <circle class="island-dot" cx="430" cy="140" r="2"/>
+    <circle class="island-dot" cx="615" cy="280" r="2"/>
+    <circle class="island-dot" cx="850" cy="270" r="2.5"/>
+    <circle class="island-dot" cx="780" cy="320" r="2"/>
+    <circle class="island-dot" cx="935" cy="310" r="2"/>
+  </g>
+
+  <!-- Compass -->
+  <g transform="translate(60,450)" opacity="0.85">
+    <circle cx="0" cy="0" r="20" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>
+    <path d="M0,-18 L4,0 L0,18 L-4,0 Z" fill="#c9cdd4" />
+    <text x="0" y="-24" text-anchor="middle" font-family="-apple-system, Arial, sans-serif"
+          font-size="11" fill="#c9cdd4" font-weight="700">N</text>
+  </g>
+
+  <!-- Scale/legend -->
+  <g transform="translate(950,470)" opacity="0.9">
+    <rect x="-90" y="-22" width="120" height="40" rx="8" fill="rgba(11,13,16,0.6)" stroke="rgba(255,255,255,0.08)"/>
+    <text x="-80" y="-6" font-family="-apple-system, Arial, sans-serif" font-size="10" fill="#9aa0a8">Klik provinsi</text>
+    <text x="-80" y="10" font-family="-apple-system, Arial, sans-serif" font-size="11" fill="#f5f6f8" font-weight="700">untuk filter lowongan</text>
   </g>
 </svg>
