@@ -125,10 +125,24 @@ document.getElementById('reg-form').addEventListener('submit', async (e) => {
     msg.innerHTML = `<div class="alert error">${window.escapeHtml((data && data.error) || 'Pendaftaran gagal')}</div>`;
     return;
   }
-  msg.innerHTML = `<div class="alert success">${window.escapeHtml(data.message)}</div>`;
-  setTimeout(() => {
-    window.location.href = '/verify-otp?email=' + encodeURIComponent(data.email);
-  }, 800);
+  let html = `<div class="alert success">${window.escapeHtml(data.message)}</div>`;
+  let delay = 800;
+  if (data.otp_sent_via_smtp === false) {
+    const notice = data.dev_otp_notice
+      || 'OTP tidak terkirim lewat email — SMTP belum dikonfigurasi atau gagal login. '
+       + 'Cek SMTP_USER / SMTP_PASS di .env lalu restart aplikasi.';
+    html += `<div class="alert error" style="margin-top:8px;">${window.escapeHtml(notice)}</div>`;
+    if (data.dev_otp) {
+      html += `<div class="alert" style="margin-top:8px;">Kode OTP dev: <strong style="font-size:18px;letter-spacing:3px;">${window.escapeHtml(data.dev_otp)}</strong></div>`;
+    }
+    delay = 4000;
+  }
+  msg.innerHTML = html;
+  if (data.email) {
+    let url = '/verify-otp?email=' + encodeURIComponent(data.email);
+    if (data.dev_otp) url += '&otp=' + encodeURIComponent(data.dev_otp);
+    setTimeout(() => { window.location.href = url; }, delay);
+  }
 });
 </script>
 {% endblock %}

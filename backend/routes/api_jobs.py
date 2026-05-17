@@ -27,33 +27,40 @@ def list_jobs():
     province = (request.args.get("province") or "").strip()
     city = (request.args.get("city") or "").strip()
     page = max(1, int(request.args.get("page", "1") or 1))
-    per_page = min(50, max(1, int(request.args.get("per_page", "12") or 12)))
+    per_page = min(200, max(1, int(request.args.get("per_page", "12") or 12)))
+
+    where = "WHERE j.is_active=1 AND c.is_approved=1"
+    params: list = []
+    if q:
+        where += " AND (j.title LIKE ? OR j.skills LIKE ? OR c.name LIKE ?)"
+        like = f"%{q}%"
+        params.extend([like, like, like])
+    if country:
+        where += " AND j.country LIKE ?"
+        params.append(f"%{country}%")
+    if province:
+        where += " AND j.province LIKE ?"
+        params.append(f"%{province}%")
+    if city:
+        where += " AND j.city LIKE ?"
+        params.append(f"%{city}%")
+
+    total_row = query_one(
+        "SELECT COUNT(*) AS n FROM jobs j JOIN companies c ON c.id=j.company_id "
+        + where,
+        params,
+    )
+    total = int(total_row["n"]) if total_row else 0
 
     sql = (
         "SELECT j.id, j.title, j.skills, j.employment_type, j.country, j.province, "
         "j.city, j.salary_min, j.salary_max, j.min_experience, j.created_at, "
         "c.id AS company_id, c.name AS company_name, c.logo_path, c.industry "
-        "FROM jobs j JOIN companies c ON c.id=j.company_id "
-        "WHERE j.is_active=1 AND c.is_approved=1"
+        "FROM jobs j JOIN companies c ON c.id=j.company_id " + where
+        + " ORDER BY j.created_at DESC LIMIT ? OFFSET ?"
     )
-    params: list = []
-    if q:
-        sql += " AND (j.title LIKE ? OR j.skills LIKE ? OR c.name LIKE ?)"
-        like = f"%{q}%"
-        params.extend([like, like, like])
-    if country:
-        sql += " AND j.country LIKE ?"
-        params.append(f"%{country}%")
-    if province:
-        sql += " AND j.province LIKE ?"
-        params.append(f"%{province}%")
-    if city:
-        sql += " AND j.city LIKE ?"
-        params.append(f"%{city}%")
-    sql += " ORDER BY j.created_at DESC LIMIT ? OFFSET ?"
-    params.extend([per_page, (page - 1) * per_page])
-
-    rows = query_all(sql, params)
+    page_params = list(params) + [per_page, (page - 1) * per_page]
+    rows = query_all(sql, page_params)
     items = []
     is_auth = bool(current_user())
     for r in rows:
@@ -62,7 +69,14 @@ def list_jobs():
             # Keep listing visible but blur "see more" detail in UI.
             d["_locked"] = True
         items.append(d)
-    return jsonify({"items": items, "page": page, "per_page": per_page})
+    has_more = (page * per_page) < total
+    return jsonify({
+        "items": items,
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "has_more": has_more,
+    })
 
 
 @bp.get("/jobs/<int:job_id>")
