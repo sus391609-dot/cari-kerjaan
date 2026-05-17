@@ -15,17 +15,23 @@
     <h2 style="margin:0;">Lowongan Terbaru</h2>
     <a class="btn ghost" href="/jobs">Lihat semua</a>
   </div>
-  <div id="latest-jobs" class="grid"></div>
+  <div id="latest-jobs" class="grid">
+    <div class="muted" style="grid-column:1/-1; padding:24px 0;">Memuat lowongan terbaru…</div>
+  </div>
 </section>
 
 <section class="section container">
   <h2>Top 10 Perusahaan Membuka Banyak Lowongan</h2>
-  <div id="top-openings" class="grid"></div>
+  <div id="top-openings" class="grid">
+    <div class="muted" style="grid-column:1/-1; padding:24px 0;">Memuat data perusahaan…</div>
+  </div>
 </section>
 
 <section class="section container">
   <h2>Perusahaan Paling Banyak Dicari</h2>
-  <div id="top-searched" class="grid"></div>
+  <div id="top-searched" class="grid">
+    <div class="muted" style="grid-column:1/-1; padding:24px 0;">Memuat data perusahaan…</div>
+  </div>
 </section>
 
 <section class="section container">
@@ -62,7 +68,9 @@
     <h2 style="margin:0;">Pengalaman Pengguna</h2>
     <a class="btn ghost" href="/share-experience">Bagikan Pengalaman Anda</a>
   </div>
-  <div id="experiences" class="grid"></div>
+  <div id="experiences" class="grid">
+    <div class="muted" style="grid-column:1/-1; padding:24px 0;">Memuat pengalaman…</div>
+  </div>
 </section>
 {% endblock %}
 
@@ -120,96 +128,222 @@ ReactDOM.createRoot(document.getElementById('search-root')).render(<SearchEngine
 </script>
 
 <script>
-(async function () {
-  const { data: jobsData } = await window.api('/api/jobs?per_page=8');
-  const root = document.getElementById('latest-jobs');
-  if (jobsData && jobsData.items) {
-    root.innerHTML = jobsData.items.map(j => `
-      <a class="card" href="/jobs/${j.id}">
-        <div class="title">${window.escapeHtml(j.title)}</div>
-        <div class="meta">${window.escapeHtml(j.company_name)} • ${window.escapeHtml(j.city || '-')}, ${window.escapeHtml(j.country || '-')}</div>
-        <div class="skills">
-          ${(j.skills || '').split(',').slice(0,4).filter(Boolean).map(s => `<span class="skill">${window.escapeHtml(s.trim())}</span>`).join('')}
-        </div>
-        <div class="muted" style="margin-top:6px;">${j.salary_min ? window.formatRp(j.salary_min) + ' – ' + window.formatRp(j.salary_max) : 'Gaji negosiasi'}</div>
-      </a>
-    `).join('');
+// Homepage data loader.
+//
+// Each section fetches independently (Promise.allSettled) so a single failure
+// (e.g. a slow endpoint, transient 500) does not block the other sections.
+// While a fetch is in flight we keep the "Memuat…" placeholder from the HTML;
+// on success we render cards, on empty data we render an empty-state message,
+// and on error we render a recoverable error message.
+//
+// We also force-add the `.in` class to the parent .reveal section as soon as a
+// section's content is rendered. This prevents the scroll-reveal animation in
+// effects.js from leaving freshly-mounted content invisible until the 5-second
+// safety-net timer fires.
+(function () {
+  const escapeHtml = window.escapeHtml || function (s) { return String(s == null ? '' : s); };
+  const formatRp = window.formatRp || function (n) {
+    if (!n && n !== 0) return '-';
+    try { return 'Rp ' + Number(n).toLocaleString('id-ID'); } catch (_) { return '-'; }
+  };
+  const REVEAL_CLASSES = ['reveal', 'reveal-left', 'reveal-right', 'reveal-scale'];
+
+  function revealAncestor(el) {
+    let cur = el;
+    while (cur && cur !== document.body) {
+      if (cur.classList && REVEAL_CLASSES.some((c) => cur.classList.contains(c))) {
+        cur.classList.add('in');
+      }
+      cur = cur.parentNode;
+    }
   }
 
-  const { data: tos } = await window.api('/api/companies/top-openings');
-  document.getElementById('top-openings').innerHTML = (tos.items || []).map(c => `
-    <div class="card">
-      <div class="title">${window.escapeHtml(c.name)}</div>
-      <div class="meta">${window.escapeHtml(c.industry || '-')}</div>
-      <div class="muted">${c.open_jobs} lowongan aktif</div>
-    </div>
-  `).join('');
-
-  const { data: tsr } = await window.api('/api/companies/top-searched');
-  document.getElementById('top-searched').innerHTML = (tsr.items || []).map(c => `
-    <div class="card">
-      <div class="title">${window.escapeHtml(c.name)}</div>
-      <div class="meta">${window.escapeHtml(c.industry || '-')}</div>
-      <div class="muted">${c.search_count} kali dilihat</div>
-    </div>
-  `).join('');
-
-  const { data: stats } = await window.api('/api/stats');
-  if (stats) {
-    document.getElementById('stat-users').textContent = stats.users || 0;
-    document.getElementById('stat-companies').textContent = stats.companies || 0;
-    document.getElementById('stat-jobs').textContent = stats.jobs || 0;
+  function render(id, html) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = html;
+    revealAncestor(el);
   }
 
-  const { data: partners } = await window.api('/api/partners');
-  const ps = document.getElementById('partners-strip');
-  if (partners && partners.items && partners.items.length) {
-    ps.innerHTML = partners.items.map(p => `
-      <div class="partner-tile">
-        ${p.link ? `<a href="${window.escapeHtml(p.link)}" target="_blank" rel="noopener">` : ''}
-        <img alt="${window.escapeHtml(p.name || 'partner')}" src="/static/${window.escapeHtml(p.image_path)}" />
-        ${p.link ? `</a>` : ''}
-      </div>
-    `).join('');
-  } else {
-    ps.innerHTML = '<div class="muted" style="grid-column:1/-1;">Belum ada mitra. Admin dapat menambahkannya di dashboard.</div>';
+  function emptyState(text) {
+    return '<div class="muted" style="grid-column:1/-1; padding:24px 0;">' + escapeHtml(text) + '</div>';
   }
 
-  const { data: exps } = await window.api('/api/experiences');
-  const ex = document.getElementById('experiences');
-  if (exps && exps.items && exps.items.length) {
-    ex.innerHTML = exps.items.map(e => `
-      <div class="card">
-        <div class="flex center gap-8">
-          ${e.photo_path ? `<img src="/static/${window.escapeHtml(e.photo_path)}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" />` : ''}
-          <div>
-            <div class="title" style="font-size:14px;">${window.escapeHtml(e.full_name || 'User')}</div>
-            <div class="meta">Rating: ${'★'.repeat(e.rating)}${'☆'.repeat(5-e.rating)}</div>
-          </div>
-        </div>
-        ${e.title ? `<div style="font-weight:700;">${window.escapeHtml(e.title)}</div>` : ''}
-        <div>${window.escapeHtml(e.body)}</div>
-      </div>
-    `).join('');
-  } else {
-    ex.innerHTML = '<div class="muted" style="grid-column:1/-1;">Belum ada pengalaman dibagikan. Jadilah yang pertama!</div>';
+  function errorState(text) {
+    return '<div class="alert error" style="grid-column:1/-1;">' + escapeHtml(text) + '</div>';
   }
 
-  // Map interactions
-  const mapObj = document.getElementById('id-map-svg');
-  if (mapObj) {
-    mapObj.addEventListener('load', () => {
+  async function safeApi(url) {
+    const res = await window.api(url);
+    if (!res.ok || !res.data) {
+      throw new Error('HTTP ' + res.status + ' from ' + url);
+    }
+    return res.data;
+  }
+
+  async function loadLatestJobs() {
+    try {
+      const data = await safeApi('/api/jobs?per_page=8');
+      const items = data.items || [];
+      if (items.length === 0) {
+        render('latest-jobs', emptyState('Belum ada lowongan. Jalankan `python seed.py` lalu refresh halaman.'));
+        return;
+      }
+      render('latest-jobs', items.map(function (j) {
+        const skills = (j.skills || '').split(',').slice(0, 4).filter(Boolean)
+          .map(function (s) { return '<span class="skill">' + escapeHtml(s.trim()) + '</span>'; }).join('');
+        const salary = j.salary_min ? (formatRp(j.salary_min) + ' – ' + formatRp(j.salary_max)) : 'Gaji negosiasi';
+        return ''
+          + '<a class="card" href="/jobs/' + j.id + '">'
+          +   '<div class="title">' + escapeHtml(j.title) + '</div>'
+          +   '<div class="meta">' + escapeHtml(j.company_name) + ' • ' + escapeHtml(j.city || '-') + ', ' + escapeHtml(j.country || '-') + '</div>'
+          +   '<div class="skills">' + skills + '</div>'
+          +   '<div class="muted" style="margin-top:6px;">' + escapeHtml(salary) + '</div>'
+          + '</a>';
+      }).join(''));
+    } catch (e) {
+      console.warn('latest-jobs failed:', e);
+      render('latest-jobs', errorState('Gagal memuat lowongan. Coba refresh halaman.'));
+    }
+  }
+
+  async function loadTopOpenings() {
+    try {
+      const data = await safeApi('/api/companies/top-openings');
+      const items = data.items || [];
+      if (items.length === 0) {
+        render('top-openings', emptyState('Belum ada perusahaan dengan lowongan aktif.'));
+        return;
+      }
+      render('top-openings', items.map(function (c) {
+        return ''
+          + '<div class="card">'
+          +   '<div class="title">' + escapeHtml(c.name) + '</div>'
+          +   '<div class="meta">' + escapeHtml(c.industry || '-') + '</div>'
+          +   '<div class="muted">' + (c.open_jobs || 0) + ' lowongan aktif</div>'
+          + '</div>';
+      }).join(''));
+    } catch (e) {
+      console.warn('top-openings failed:', e);
+      render('top-openings', errorState('Gagal memuat data perusahaan.'));
+    }
+  }
+
+  async function loadTopSearched() {
+    try {
+      const data = await safeApi('/api/companies/top-searched');
+      const items = data.items || [];
+      if (items.length === 0) {
+        render('top-searched', emptyState('Belum ada perusahaan yang dilihat pengguna.'));
+        return;
+      }
+      render('top-searched', items.map(function (c) {
+        return ''
+          + '<div class="card">'
+          +   '<div class="title">' + escapeHtml(c.name) + '</div>'
+          +   '<div class="meta">' + escapeHtml(c.industry || '-') + '</div>'
+          +   '<div class="muted">' + (c.search_count || 0) + ' kali dilihat</div>'
+          + '</div>';
+      }).join(''));
+    } catch (e) {
+      console.warn('top-searched failed:', e);
+      render('top-searched', errorState('Gagal memuat data perusahaan.'));
+    }
+  }
+
+  async function loadStats() {
+    try {
+      const data = await safeApi('/api/stats');
+      const u = document.getElementById('stat-users');
+      const c = document.getElementById('stat-companies');
+      const j = document.getElementById('stat-jobs');
+      if (u) u.textContent = data.users || 0;
+      if (c) c.textContent = data.companies || 0;
+      if (j) j.textContent = data.jobs || 0;
+      revealAncestor(u || c || j);
+    } catch (e) {
+      console.warn('stats failed:', e);
+    }
+  }
+
+  async function loadPartners() {
+    try {
+      const data = await safeApi('/api/partners');
+      const items = data.items || [];
+      if (items.length === 0) {
+        render('partners-strip', '<div class="muted" style="grid-column:1/-1;">Belum ada mitra. Admin dapat menambahkannya di dashboard.</div>');
+        return;
+      }
+      render('partners-strip', items.map(function (p) {
+        const link = p.link ? escapeHtml(p.link) : '';
+        const name = escapeHtml(p.name || 'partner');
+        const img = '<img alt="' + name + '" src="/static/' + escapeHtml(p.image_path) + '" />';
+        return '<div class="partner-tile">' + (link ? ('<a href="' + link + '" target="_blank" rel="noopener">' + img + '</a>') : img) + '</div>';
+      }).join(''));
+    } catch (e) {
+      console.warn('partners failed:', e);
+      render('partners-strip', errorState('Gagal memuat daftar mitra.'));
+    }
+  }
+
+  async function loadExperiences() {
+    try {
+      const data = await safeApi('/api/experiences');
+      const items = data.items || [];
+      if (items.length === 0) {
+        render('experiences', emptyState('Belum ada pengalaman dibagikan. Jadilah yang pertama!'));
+        return;
+      }
+      render('experiences', items.map(function (ex) {
+        const photo = ex.photo_path
+          ? ('<img src="/static/' + escapeHtml(ex.photo_path) + '" style="width:36px;height:36px;border-radius:50%;object-fit:cover;" />')
+          : '';
+        const rating = Math.max(0, Math.min(5, Number(ex.rating) || 0));
+        const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+        const title = ex.title ? ('<div style="font-weight:700;">' + escapeHtml(ex.title) + '</div>') : '';
+        return ''
+          + '<div class="card">'
+          +   '<div class="flex center gap-8">' + photo
+          +     '<div>'
+          +       '<div class="title" style="font-size:14px;">' + escapeHtml(ex.full_name || 'User') + '</div>'
+          +       '<div class="meta">Rating: ' + stars + '</div>'
+          +     '</div>'
+          +   '</div>'
+          +   title
+          +   '<div>' + escapeHtml(ex.body) + '</div>'
+          + '</div>';
+      }).join(''));
+    } catch (e) {
+      console.warn('experiences failed:', e);
+      render('experiences', errorState('Gagal memuat pengalaman.'));
+    }
+  }
+
+  function initMap() {
+    const mapObj = document.getElementById('id-map-svg');
+    if (!mapObj) return;
+    mapObj.addEventListener('load', function () {
       const doc = mapObj.contentDocument;
       if (!doc) return;
-      doc.querySelectorAll('.region').forEach(el => {
+      doc.querySelectorAll('.region').forEach(function (el) {
         el.style.cursor = 'pointer';
-        el.addEventListener('click', () => {
+        el.addEventListener('click', function () {
           const prov = el.getAttribute('data-province') || '';
           window.location.href = '/jobs?province=' + encodeURIComponent(prov);
         });
       });
     });
   }
+
+  Promise.allSettled([
+    loadLatestJobs(),
+    loadTopOpenings(),
+    loadTopSearched(),
+    loadStats(),
+    loadPartners(),
+    loadExperiences(),
+  ]);
+  initMap();
 })();
 </script>
 {% endblock %}
