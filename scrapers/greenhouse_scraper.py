@@ -114,7 +114,6 @@ COMPANIES: list[tuple[str, str, str | None]] = [
     ("paxos", "Paxos", "Fintech"),
     ("plenty", "Plenty", "AgriTech"),
     ("nuro", "Nuro", "Robotics"),
-    ("scaleai", "Scale AI", "Machine Learning"),
     ("airwallex", "Airwallex", "Fintech"),
     ("traveloka", "Traveloka", "Travel"),
     ("gojek", "Gojek", "Super App"),

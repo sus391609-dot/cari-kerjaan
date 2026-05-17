@@ -37,7 +37,7 @@ SKILL_DICTIONARY: dict[str, list[str]] = {
     "swift": ["swift"],
     "c++": ["c++", "cpp"],
     "c#": ["c#", "csharp"],
-    "go": ["golang", " go "],
+    "go": ["golang", "go"],
     "rust": ["rust"],
     "php": ["php"],
     "ruby": ["ruby", "rails"],
@@ -118,48 +118,136 @@ def _detect_skills(text_lower: str) -> list[str]:
     return sorted(set(found))
 
 
+# Indonesian + English month names (full + 3-letter abbreviations).
+# Kept lower-case; regex uses re.IGNORECASE.
+_MONTHS: dict[str, int] = {
+    # English
+    "january": 1, "jan": 1,
+    "february": 2, "feb": 2,
+    "march": 3, "mar": 3,
+    "april": 4, "apr": 4,
+    "may": 5,
+    "june": 6, "jun": 6,
+    "july": 7, "jul": 7,
+    "august": 8, "aug": 8,
+    "september": 9, "sept": 9, "sep": 9,
+    "october": 10, "oct": 10,
+    "november": 11, "nov": 11,
+    "december": 12, "dec": 12,
+    # Indonesian
+    "januari": 1,
+    "februari": 2,
+    "maret": 3,
+    "mei": 5,
+    "juni": 6,
+    "juli": 7,
+    "agustus": 8, "agu": 8, "agt": 8,
+    "oktober": 10, "okt": 10,
+    "desember": 12, "des": 12,
+}
+
+# Pre-sorted longest-first so the regex prefers "september" over "sep".
+_MONTH_PATTERN: str = "|".join(
+    re.escape(m) for m in sorted(_MONTHS, key=len, reverse=True)
+)
+
+
+def _resolve_month(raw: str) -> int | None:
+    """Map a numeric or named month token to 1-12, or ``None`` if unknown."""
+    raw = raw.strip().lower()
+    if raw.isdigit():
+        n = int(raw)
+        return n if 1 <= n <= 12 else None
+    return _MONTHS.get(raw)
+
+
 def _detect_age(text: str) -> int | None:
-    # Try to find "umur 24", "age 25", "berusia 28"
-    for pat in (
-        r"(?:umur|usia|age|berusia)\s*[:\-]?\s*(\d{2})",
-        r"(\d{2})\s*(?:tahun|years old|yo)",
-    ):
-        m = re.search(pat, text, re.IGNORECASE)
-        if m:
-            age = int(m.group(1))
-            if 14 <= age <= 90:
-                return age
-    # Try to find a date of birth and compute age
+    # 1) Explicit age statements: "umur 24", "berusia: 28", "age 25".
     m = re.search(
-        r"(?:tanggal lahir|date of birth|dob|tempat[, ]+tanggal lahir)[^\d]*"
-        r"(\d{1,2})[\s\-/](\d{1,2}|jan|feb|mar|apr|mei|may|jun|jul|agu|aug|sep|okt|oct|nov|des|dec)"
-        r"[\s\-/](\d{4})",
+        r"(?:umur|usia|age|berusia)\s*[:\-]?\s*(\d{2})\b",
         text,
         re.IGNORECASE,
     )
     if m:
-        day = int(m.group(1))
-        mon_raw = m.group(2)
-        year = int(m.group(3))
-        months = {
-            "jan": 1, "feb": 2, "mar": 3, "apr": 4, "mei": 5, "may": 5,
-            "jun": 6, "jul": 7, "agu": 8, "aug": 8, "sep": 9, "okt": 10,
-            "oct": 10, "nov": 11, "des": 12, "dec": 12,
-        }
-        try:
-            month = int(mon_raw)
-        except ValueError:
-            month = months.get(mon_raw.lower()[:3], 1)
+        age = int(m.group(1))
+        if 14 <= age <= 90:
+            return age
+
+    # 2) "X tahun" / "X years old" — but reject false positives like
+    #    "5 tahun pengalaman" / "10 years of experience" / "lulus tahun 2020".
+    for m in re.finditer(
+        r"\b(\d{2})\s*(?:tahun|years?\s*old|yo)\b",
+        text,
+        re.IGNORECASE,
+    ):
+        tail = text[m.end(): m.end() + 40].lower()
+        if re.match(
+            r"\s*(?:pengalaman|of\s+experience|experience|kerja|"
+            r"work(?:ing)?|berkarir|bekerja|menjadi|sebagai)",
+            tail,
+        ):
+            continue
+        age = int(m.group(1))
+        if 14 <= age <= 90:
+            return age
+
+    # 3) Date of birth — accept with or without an explicit prefix, plus
+    #    full Indonesian/English month names. Formats handled:
+    #      "12 Maret 1999", "12-03-1999", "12/03/1999", "1999-03-12",
+    #      "Tempat, tanggal lahir: Jakarta, 12 Maret 1999".
+    dob_patterns = [
+        # "DD <month> YYYY" (e.g. "12 Maret 1999", "12 Mar 1999",
+        # "12 January 1999", "12-03-1999", "12/03/1999")
+        re.compile(
+            r"\b(\d{1,2})[\s\-/.](" + _MONTH_PATTERN + r"|\d{1,2})[\s\-/.](\d{4})\b",
+            re.IGNORECASE,
+        ),
+        # "YYYY-MM-DD" (ISO)
+        re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b"),
+    ]
+    candidates: list[tuple[int, int, int]] = []
+    for pat in dob_patterns:
+        for m in pat.finditer(text):
+            groups = m.groups()
+            try:
+                if len(groups[0]) == 4:  # YYYY-MM-DD branch
+                    year, month_raw, day_raw = groups
+                    day = int(day_raw)
+                    month = _resolve_month(month_raw)
+                    year = int(year)
+                else:
+                    day_raw, month_raw, year_raw = groups
+                    day = int(day_raw)
+                    month = _resolve_month(month_raw)
+                    year = int(year_raw)
+            except (TypeError, ValueError):
+                continue
+            if month is None or not (1 <= day <= 31) or not (1900 <= year <= 2100):
+                continue
+            candidates.append((year, month, day))
+
+    if not candidates:
+        return None
+
+    # Prefer DOB candidates that are clearly people's birthdays: between
+    # 14 and 90 years ago. If several match, use the oldest sensible one
+    # (handles CVs that list both DOB and other date ranges like
+    # "2020 - 2024").
+    today = datetime.utcnow()
+    plausible: list[int] = []
+    for year, month, day in candidates:
         try:
             dob = datetime(year, month, day)
-            today = datetime.utcnow()
-            age = today.year - dob.year - (
-                (today.month, today.day) < (dob.month, dob.day)
-            )
-            if 14 <= age <= 90:
-                return age
         except ValueError:
-            return None
+            continue
+        age = today.year - dob.year - (
+            (today.month, today.day) < (dob.month, dob.day)
+        )
+        if 14 <= age <= 90:
+            plausible.append(age)
+    if plausible:
+        # The DOB is usually the oldest plausible age on the CV.
+        return max(plausible)
     return None
 
 
