@@ -22,6 +22,7 @@ The script supports a ``--dry-run`` flag for preview.
 from __future__ import annotations
 
 import argparse
+import gzip
 import html
 import json
 import os
@@ -35,6 +36,21 @@ if str(ROOT) not in sys.path:
 
 from app import create_app  # noqa: E402
 from backend.database import execute, query_one  # noqa: E402
+
+
+def _load_jobs(path: Path) -> list:
+    """Load a list of jobs from ``path`` (json) or its ``.gz`` sibling.
+
+    Large feeds (e.g. greenhouse, the muse) are gzipped on disk to stay
+    well under GitHub size limits while remaining reproducible.
+    """
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    gz = path.with_suffix(path.suffix + ".gz")
+    if gz.exists():
+        with gzip.open(gz, "rt", encoding="utf-8") as fh:
+            return json.load(fh)
+    return []
 
 
 USD_TO_IDR = int(os.environ.get("USD_TO_IDR_RATE", "16000"))
@@ -196,9 +212,9 @@ def upsert_job(*, company_id: int, title: str, description: str | None,
 # ----------------------------------------------------------------------
 
 def import_remoteok(path: Path, dry_run: bool) -> tuple[int, int]:
-    if not path.exists():
+    jobs = _load_jobs(path)
+    if not jobs:
         return 0, 0
-    jobs = json.loads(path.read_text(encoding="utf-8"))
     ins = skip = 0
     for j in jobs:
         company_id = find_or_create_company(
@@ -260,9 +276,9 @@ def import_remoteok(path: Path, dry_run: bool) -> tuple[int, int]:
 # ----------------------------------------------------------------------
 
 def import_arbeitnow(path: Path, dry_run: bool) -> tuple[int, int]:
-    if not path.exists():
+    jobs = _load_jobs(path)
+    if not jobs:
         return 0, 0
-    jobs = json.loads(path.read_text(encoding="utf-8"))
     ins = skip = 0
     for j in jobs:
         company_id = find_or_create_company(
@@ -332,9 +348,9 @@ def _jobicy_emp_type(types: list[str] | None) -> str:
 
 
 def import_jobicy(path: Path, dry_run: bool) -> tuple[int, int]:
-    if not path.exists():
+    jobs = _load_jobs(path)
+    if not jobs:
         return 0, 0
-    jobs = json.loads(path.read_text(encoding="utf-8"))
     ins = skip = 0
     for j in jobs:
         industry = j.get("industry")
@@ -385,9 +401,9 @@ def import_jobicy(path: Path, dry_run: bool) -> tuple[int, int]:
 # ----------------------------------------------------------------------
 
 def import_wwr(path: Path, dry_run: bool) -> tuple[int, int]:
-    if not path.exists():
+    jobs = _load_jobs(path)
+    if not jobs:
         return 0, 0
-    jobs = json.loads(path.read_text(encoding="utf-8"))
     ins = skip = 0
     for j in jobs:
         company_id = find_or_create_company(
@@ -464,10 +480,330 @@ def _adzuna_salary_monthly(v: float | None) -> int | None:
     return int(v)
 
 
-def import_adzuna(path: Path, dry_run: bool) -> tuple[int, int]:
-    if not path.exists():
+# ----------------------------------------------------------------------
+# The Muse
+# ----------------------------------------------------------------------
+
+THEMUSE_TYPE_MAP = {
+    "Full-Time": "Full-time",
+    "Part-Time": "Part-time",
+    "Contract": "Contract",
+    "Temporary": "Contract",
+    "Internship": "Internship",
+    "Freelance": "Freelance",
+}
+
+
+# The Muse exposes a fixed list of "Career Levels" that we map onto
+# ``min_experience`` years.
+THEMUSE_LEVEL_MAP = {
+    "Internship": 0,
+    "Entry Level": 0,
+    "Mid Level": 2,
+    "Senior Level": 5,
+    "Management": 6,
+    "Director": 8,
+    "Executive": 10,
+}
+
+
+def _themuse_country(location: str) -> str:
+    loc = (location or "").lower()
+    if not loc or loc == "flexible / remote":
+        return "Worldwide"
+    if "indonesia" in loc or "jakarta" in loc or "bandung" in loc:
+        return "Indonesia"
+    if "singapore" in loc:
+        return "Singapore"
+    if "australia" in loc or "sydney" in loc or "melbourne" in loc:
+        return "Australia"
+    if any(k in loc for k in ("united kingdom", "london", "manchester")):
+        return "United Kingdom"
+    if any(k in loc for k in (", usa", "united states", "new york", "san francisco",
+                              "boston", "chicago", "los angeles", "seattle",
+                              "austin", "miami", "atlanta", "denver", "dallas",
+                              "houston", "washington", "philadelphia")):
+        return "United States"
+    if any(k in loc for k in ("canada", "toronto", "vancouver", "montreal")):
+        return "Canada"
+    if any(k in loc for k in ("germany", "berlin", "munich")):
+        return "Germany"
+    if "ireland" in loc:
+        return "Ireland"
+    if "philippines" in loc:
+        return "Philippines"
+    if "india" in loc or "bangalore" in loc or "mumbai" in loc:
+        return "India"
+    if "japan" in loc or "tokyo" in loc:
+        return "Japan"
+    if "netherlands" in loc or "amsterdam" in loc:
+        return "Netherlands"
+    if "france" in loc or "paris" in loc:
+        return "France"
+    return "Worldwide"
+
+
+def import_themuse(path: Path, dry_run: bool) -> tuple[int, int]:
+    jobs = _load_jobs(path)
+    if not jobs:
         return 0, 0
-    jobs = json.loads(path.read_text(encoding="utf-8"))
+    ins = skip = 0
+    for j in jobs:
+        company_id = find_or_create_company(
+            j.get("company_name") or "",
+            industry=j.get("category"),
+            country=None,
+        )
+        if not company_id:
+            skip += 1
+            continue
+        descr = strip_html(j.get("description_html") or "")
+        url = j.get("url") or ""
+        req_parts: list[str] = []
+        if j.get("level"):
+            req_parts.append(f"Level: {j['level']}")
+        if j.get("tags"):
+            req_parts.append("Tags: " + ", ".join(j["tags"][:10]))
+        if url:
+            req_parts.append(f"Sumber: {url}")
+        req = "\n".join(req_parts) if req_parts else None
+        loc = (j.get("location") or "").strip() or "Remote"
+        country = _themuse_country(loc)
+        emp_type = THEMUSE_TYPE_MAP.get(j.get("type") or "", "Full-time")
+        min_exp = THEMUSE_LEVEL_MAP.get(j.get("level") or "", 0)
+        # Limit skills column to 10 lowercase tokens.
+        skills = ", ".join((j.get("tags") or [])[:10]) or None
+        status = upsert_job(
+            company_id=company_id,
+            title=j.get("title") or "",
+            description=descr,
+            requirements=req,
+            employment_type=emp_type,
+            country=country,
+            province=None,
+            city=loc.split(",")[0].strip() or None,
+            salary_min=None,
+            salary_max=None,
+            min_experience=min_exp,
+            skills=skills,
+            dry_run=dry_run,
+        )
+        if status == "inserted":
+            ins += 1
+        else:
+            skip += 1
+    return ins, skip
+
+
+# ----------------------------------------------------------------------
+# Remotive
+# ----------------------------------------------------------------------
+
+REMOTIVE_TYPE_MAP = {
+    "full_time": "Full-time",
+    "part_time": "Part-time",
+    "contract": "Contract",
+    "freelance": "Freelance",
+    "internship": "Internship",
+}
+
+
+def import_remotive(path: Path, dry_run: bool) -> tuple[int, int]:
+    jobs = _load_jobs(path)
+    if not jobs:
+        return 0, 0
+    ins = skip = 0
+    for j in jobs:
+        company_id = find_or_create_company(
+            j.get("company_name") or "",
+            industry=j.get("category"),
+            country="Worldwide",
+        )
+        if not company_id:
+            skip += 1
+            continue
+        descr = strip_html(j.get("description_html") or "")
+        url = j.get("url") or ""
+        req = f"Sumber: {url}" if url else None
+        loc = (j.get("location") or "").strip() or "Remote"
+        country = "Worldwide"
+        loc_low = loc.lower()
+        if "indonesia" in loc_low:
+            country = "Indonesia"
+        elif "singapore" in loc_low:
+            country = "Singapore"
+        elif "australia" in loc_low:
+            country = "Australia"
+        emp_type = REMOTIVE_TYPE_MAP.get((j.get("job_type") or "").lower(), "Remote")
+        skills = ", ".join((j.get("tags") or [])[:10]) or None
+        status = upsert_job(
+            company_id=company_id,
+            title=j.get("title") or "",
+            description=descr,
+            requirements=req,
+            employment_type=emp_type,
+            country=country,
+            province=None,
+            city=loc,
+            salary_min=None,
+            salary_max=None,
+            min_experience=0,
+            skills=skills,
+            dry_run=dry_run,
+        )
+        if status == "inserted":
+            ins += 1
+        else:
+            skip += 1
+    return ins, skip
+
+
+# ----------------------------------------------------------------------
+# Greenhouse public boards
+# ----------------------------------------------------------------------
+
+# Reuse The Muse country heuristic to map "San Francisco, CA, USA" etc.
+# onto the country buckets used in our UI.
+
+def import_greenhouse(path: Path, dry_run: bool) -> tuple[int, int]:
+    jobs = _load_jobs(path)
+    if not jobs:
+        return 0, 0
+    ins = skip = 0
+    for j in jobs:
+        company_id = find_or_create_company(
+            j.get("company_name") or "",
+            industry=j.get("industry"),
+            country=None,
+        )
+        if not company_id:
+            skip += 1
+            continue
+        descr = strip_html(j.get("description_html") or "")
+        url = j.get("url") or ""
+        offices = j.get("offices") or []
+        departments = j.get("departments") or []
+        req_parts: list[str] = []
+        if departments:
+            req_parts.append("Department: " + ", ".join(departments[:3]))
+        if offices:
+            req_parts.append("Offices: " + ", ".join(offices[:5]))
+        if url:
+            req_parts.append(f"Sumber: {url}")
+        req = "\n".join(req_parts) if req_parts else None
+        loc = (j.get("location") or "Remote").strip()
+        country = _themuse_country(loc)
+        # Try harder for an Indonesian listing via offices array.
+        if country == "Worldwide":
+            for office in offices:
+                if office and ("Indonesia" in office or "Jakarta" in office):
+                    country = "Indonesia"
+                    break
+                if office and "Singapore" in office:
+                    country = "Singapore"
+                    break
+        status = upsert_job(
+            company_id=company_id,
+            title=j.get("title") or "",
+            description=descr,
+            requirements=req,
+            employment_type="Full-time",
+            country=country,
+            province=None,
+            city=loc.split(",")[0].strip() or None,
+            salary_min=None,
+            salary_max=None,
+            min_experience=0,
+            skills=", ".join(departments[:5]).lower() or None,
+            dry_run=dry_run,
+        )
+        if status == "inserted":
+            ins += 1
+        else:
+            skip += 1
+    return ins, skip
+
+
+# ----------------------------------------------------------------------
+# Lever public boards
+# ----------------------------------------------------------------------
+
+LEVER_COMMITMENT_MAP = {
+    "Full-time": "Full-time",
+    "Full Time": "Full-time",
+    "Part-time": "Part-time",
+    "Part Time": "Part-time",
+    "Contract": "Contract",
+    "Contractor": "Contract",
+    "Internship": "Internship",
+    "Intern": "Internship",
+    "Temporary": "Contract",
+}
+
+
+def import_lever(path: Path, dry_run: bool) -> tuple[int, int]:
+    jobs = _load_jobs(path)
+    if not jobs:
+        return 0, 0
+    ins = skip = 0
+    for j in jobs:
+        company_id = find_or_create_company(
+            j.get("company_name") or "",
+            industry=j.get("industry"),
+            country=None,
+        )
+        if not company_id:
+            skip += 1
+            continue
+        descr = strip_html(j.get("description_html") or "")
+        url = j.get("url") or ""
+        req_parts: list[str] = []
+        if j.get("team"):
+            req_parts.append(f"Team: {j['team']}")
+        if j.get("department"):
+            req_parts.append(f"Department: {j['department']}")
+        if url:
+            req_parts.append(f"Sumber: {url}")
+        req = "\n".join(req_parts) if req_parts else None
+        loc = (j.get("location") or "Remote").strip()
+        country = _themuse_country(loc)
+        emp_type = LEVER_COMMITMENT_MAP.get(j.get("commitment") or "", "Full-time")
+        skills_parts: list[str] = []
+        if j.get("team"):
+            skills_parts.append(str(j["team"]).lower())
+        if j.get("department"):
+            skills_parts.append(str(j["department"]).lower())
+        status = upsert_job(
+            company_id=company_id,
+            title=j.get("title") or "",
+            description=descr,
+            requirements=req,
+            employment_type=emp_type,
+            country=country,
+            province=None,
+            city=loc.split(",")[0].strip() or None,
+            salary_min=None,
+            salary_max=None,
+            min_experience=0,
+            skills=", ".join(skills_parts) or None,
+            dry_run=dry_run,
+        )
+        if status == "inserted":
+            ins += 1
+        else:
+            skip += 1
+    return ins, skip
+
+
+# ----------------------------------------------------------------------
+# Adzuna ID
+# ----------------------------------------------------------------------
+
+
+def import_adzuna(path: Path, dry_run: bool) -> tuple[int, int]:
+    jobs = _load_jobs(path)
+    if not jobs:
+        return 0, 0
     ins = skip = 0
     for j in jobs:
         company_id = find_or_create_company(
@@ -523,6 +859,10 @@ def main() -> int:
     ap.add_argument("--skip-jobicy", action="store_true")
     ap.add_argument("--skip-wwr", action="store_true")
     ap.add_argument("--skip-adzuna", action="store_true")
+    ap.add_argument("--skip-themuse", action="store_true")
+    ap.add_argument("--skip-remotive", action="store_true")
+    ap.add_argument("--skip-greenhouse", action="store_true")
+    ap.add_argument("--skip-lever", action="store_true")
     args = ap.parse_args()
 
     app = create_app()
@@ -555,6 +895,26 @@ def main() -> int:
             total_ins += ins
             total_skip += skip
             print(f"adzuna:   inserted={ins} skipped={skip}")
+        if not args.skip_themuse:
+            ins, skip = import_themuse(args.data_dir / "themuse_jobs.json", args.dry_run)
+            total_ins += ins
+            total_skip += skip
+            print(f"themuse:  inserted={ins} skipped={skip}")
+        if not args.skip_remotive:
+            ins, skip = import_remotive(args.data_dir / "remotive_jobs.json", args.dry_run)
+            total_ins += ins
+            total_skip += skip
+            print(f"remotive: inserted={ins} skipped={skip}")
+        if not args.skip_greenhouse:
+            ins, skip = import_greenhouse(args.data_dir / "greenhouse_jobs.json", args.dry_run)
+            total_ins += ins
+            total_skip += skip
+            print(f"greenhouse: inserted={ins} skipped={skip}")
+        if not args.skip_lever:
+            ins, skip = import_lever(args.data_dir / "lever_jobs.json", args.dry_run)
+            total_ins += ins
+            total_skip += skip
+            print(f"lever:    inserted={ins} skipped={skip}")
         after_companies = query_one("SELECT COUNT(*) AS n FROM companies")["n"]
         after_jobs = query_one("SELECT COUNT(*) AS n FROM jobs")["n"]
         print(
