@@ -513,6 +513,321 @@ def build() -> None:
         "python docs/generate_docs.py  # regenerate dokumentasi .docx",
     )
 
+    # 12. Sumber data lowongan (external scrapers / API)
+    doc.add_page_break()
+    add_heading(doc, "12. Sumber Data Lowongan & Integrasi API Eksternal", level=1)
+    add_para(
+        doc,
+        "Database lowongan diisi dengan kombinasi data hasil scraping job "
+        "board publik dan REST API gratis. Semua data diambil dengan rate "
+        "limit konservatif dan disimpan sebagai snapshot JSON di "
+        "scrapers/data/* sebelum di-import ke SQLite. Importer bersifat "
+        "idempotent: perusahaan di-dedup case-insensitive berdasarkan nama "
+        "dan lowongan di-dedup berdasarkan (company_id, title).",
+    )
+
+    add_heading(doc, "12.1 Ringkasan sumber data", level=2)
+    add_table(
+        doc,
+        ["Sumber", "Tipe", "Auth", "Cakupan", "Script scraper"],
+        [
+            [
+                "Kalibrr.id",
+                "HTML SSR (__NEXT_DATA__)",
+                "Tidak ada",
+                "Indonesia, 21 industri x 2 mode (umum + WFH)",
+                "scrapers/kalibrr_scraper.py",
+            ],
+            [
+                "RemoteOK",
+                "REST JSON",
+                "Tidak ada",
+                "Global, semua lowongan remote (full feed)",
+                "scrapers/remoteok_scraper.py",
+            ],
+            [
+                "arbeitnow.com",
+                "REST JSON (paginated)",
+                "Tidak ada",
+                "Global (fokus EU + remote), 10 halaman x 100",
+                "scrapers/arbeitnow_scraper.py",
+            ],
+            [
+                "Jobicy.com",
+                "REST JSON",
+                "Tidak ada",
+                "Global remote, 15 industri x 100",
+                "scrapers/jobicy_scraper.py",
+            ],
+            [
+                "WeWorkRemotely",
+                "RSS XML",
+                "Tidak ada",
+                "Global remote, 8 kategori (programming, design, sales, dsb)",
+                "scrapers/weworkremotely_scraper.py",
+            ],
+            [
+                "Adzuna.com",
+                "REST JSON",
+                "API key (gratis)",
+                "Indonesia, sweep 20 kata kunci",
+                "scrapers/adzuna_scraper.py",
+            ],
+        ],
+    )
+
+    add_heading(doc, "12.2 Endpoint API yang dipakai", level=2)
+    add_table(
+        doc,
+        ["Sumber", "Endpoint", "Method", "Query params penting"],
+        [
+            [
+                "Kalibrr",
+                "https://www.kalibrr.id/job-board/i/<industry>/<page>",
+                "GET (HTML)",
+                "industry, work_from_home",
+            ],
+            [
+                "RemoteOK",
+                "https://remoteok.com/api",
+                "GET",
+                "(tanpa parameter)",
+            ],
+            [
+                "arbeitnow",
+                "https://www.arbeitnow.com/api/job-board-api",
+                "GET",
+                "?page=N",
+            ],
+            [
+                "Jobicy",
+                "https://jobicy.com/api/v2/remote-jobs",
+                "GET",
+                "?count=100&industry=...&geo=...",
+            ],
+            [
+                "WWR (RSS)",
+                "https://weworkremotely.com/categories/<slug>.rss",
+                "GET",
+                "(tanpa parameter)",
+            ],
+            [
+                "Adzuna",
+                "https://api.adzuna.com/v1/api/jobs/id/search/<page>",
+                "GET",
+                "app_id, app_key, results_per_page, what",
+            ],
+        ],
+    )
+
+    add_heading(doc, "12.3 Field yang diambil", level=2)
+    add_para(
+        doc,
+        "Berikut field yang berhasil di-mapping ke kolom database. Field "
+        "yang tidak ada di sumber bernilai NULL.",
+    )
+    add_table(
+        doc,
+        ["Kolom DB", "Kalibrr", "RemoteOK", "arbeitnow", "Jobicy", "WWR", "Adzuna"],
+        [
+            ["title", "name", "position", "title", "jobTitle", "title (split ':')", "title"],
+            ["company_name", "company.name", "company", "company_name", "companyName", "title prefix", "company.display_name"],
+            ["description", "description (HTML)", "description (HTML)", "description (HTML)", "jobDescription", "description (RSS)", "description (HTML)"],
+            ["requirements", "qualifications + Sumber", "tags + Sumber", "Sumber link", "Sumber link", "Sumber link", "Sumber link"],
+            ["country", "googleLocation.country", "heuristik dari location", "heuristik", "heuristik dari jobGeo", "region", "Indonesia"],
+            ["province", "googleLocation.region (normalized)", "-", "-", "-", "-", "location.area[1] (normalized)"],
+            ["city", "googleLocation.city (normalized)", "location", "location", "jobGeo", "region", "location.area[2]"],
+            ["salary_min/max", "baseSalary/maximumSalary (IDR only)", "salary_min/max (USD/yr -> IDR/bln)", "-", "salaryMin/Max", "-", "salary_min/max (IDR)"],
+            ["employment_type", "tenure (mapped)", "Remote", "job_types[0]", "jobType[0]", "Remote", "contract_time/contract_type"],
+            ["skills", "-", "tags (join ',')", "tags (join ',')", "-", "-", "-"],
+            ["min_experience", "workExperience bucket (mapped)", "0", "0", "0", "0", "0"],
+        ],
+    )
+
+    add_heading(doc, "12.4 Contoh response Kalibrr (__NEXT_DATA__)", level=2)
+    add_para(
+        doc,
+        "Kalibrr adalah Next.js SSR. Setiap halaman job-board memuat "
+        "<script id=\"__NEXT_DATA__\"> berisi JSON. Path job:",
+    )
+    add_code(
+        doc,
+        "props.pageProps.jobs = [\n"
+        "  {\n"
+        "    id: 267040,\n"
+        "    name: \"Sales Canvassing EDC Klungkung\",\n"
+        "    slug: \"sales-canvassing-edc-klungkung\",\n"
+        "    description: \"<p>Mencari new sales/UMKM ...</p>\",\n"
+        "    qualifications: \"<ul><li>Berpengalaman ...</li></ul>\",\n"
+        "    tenure: \"Full time\",\n"
+        "    workExperience: 200,           // 100|200|300|400 bucket\n"
+        "    baseSalary: 5000000,\n"
+        "    maximumSalary: 6000000,\n"
+        "    salaryCurrency: \"IDR\",\n"
+        "    salaryInterval: \"month\",\n"
+        "    isWorkFromHome: false,\n"
+        "    googleLocation: { addressComponents: {\n"
+        "      country: \"Indonesia\", region: \"Bali\", city: \"Klungkung\"\n"
+        "    }},\n"
+        "    company: {\n"
+        "      code: \"buku-warung\",\n"
+        "      name: \"Buku Warung\",\n"
+        "      industry: \"Financial Services\"\n"
+        "    }\n"
+        "  },\n"
+        "  ...\n"
+        "]",
+    )
+
+    add_heading(doc, "12.5 Contoh response RemoteOK", level=2)
+    add_code(
+        doc,
+        "GET https://remoteok.com/api\n"
+        "[\n"
+        "  { /* meta */ },\n"
+        "  {\n"
+        "    \"id\": \"123456\",\n"
+        "    \"slug\": \"forward-deployed-engineer-cohere\",\n"
+        "    \"position\": \"Forward Deployed Engineer Agentic Platform\",\n"
+        "    \"company\": \"Cohere\",\n"
+        "    \"location\": \"\",\n"
+        "    \"tags\": [\"engineer\", \"python\", \"llm\"],\n"
+        "    \"description\": \"<p>...</p>\",\n"
+        "    \"salary_min\": 150000, \"salary_max\": 200000,   // USD per year\n"
+        "    \"apply_url\": \"https://remoteok.com/l/123456\"\n"
+        "  }, ...\n"
+        "]",
+    )
+
+    add_heading(doc, "12.6 Contoh response arbeitnow", level=2)
+    add_code(
+        doc,
+        "GET https://www.arbeitnow.com/api/job-board-api?page=1\n"
+        "{\n"
+        "  \"data\": [\n"
+        "    {\n"
+        "      \"slug\": \"tech-lead-android-core-product-speechify-12345\",\n"
+        "      \"company_name\": \"Speechify\",\n"
+        "      \"title\": \"Tech Lead, Android Core Product\",\n"
+        "      \"description\": \"<p>...</p>\",\n"
+        "      \"remote\": false,\n"
+        "      \"location\": \"Munich, Bavaria, Germany\",\n"
+        "      \"tags\": [\"android\", \"kotlin\"],\n"
+        "      \"job_types\": [\"full-time\"],\n"
+        "      \"created_at\": 1715000000,\n"
+        "      \"url\": \"https://www.arbeitnow.com/view/...\"\n"
+        "    }, ...\n"
+        "  ],\n"
+        "  \"meta\": { \"current_page\": 1, \"per_page\": 100, \"to\": 100 }\n"
+        "}",
+    )
+
+    add_heading(doc, "12.7 Contoh response Jobicy", level=2)
+    add_code(
+        doc,
+        "GET https://jobicy.com/api/v2/remote-jobs?count=100&industry=marketing\n"
+        "{\n"
+        "  \"jobCount\": 100,\n"
+        "  \"jobs\": [\n"
+        "    {\n"
+        "      \"id\": 144044,\n"
+        "      \"jobSlug\": \"144044-order-management-associate\",\n"
+        "      \"jobTitle\": \"Order Management Associate\",\n"
+        "      \"companyName\": \"EOS\",\n"
+        "      \"jobIndustry\": [\"Admin & Virtual Assistant\"],\n"
+        "      \"jobType\": [\"Full-Time\"],\n"
+        "      \"jobGeo\": \"USA\",\n"
+        "      \"jobLevel\": \"Midweight\",\n"
+        "      \"jobDescription\": \"<p>...</p>\",\n"
+        "      \"salaryMin\": 50000, \"salaryMax\": 75000,\n"
+        "      \"salaryCurrency\": \"USD\", \"salaryPeriod\": \"yearly\",\n"
+        "      \"url\": \"https://jobicy.com/jobs/...\"\n"
+        "    }, ...\n"
+        "  ]\n"
+        "}",
+    )
+
+    add_heading(doc, "12.8 Contoh response Adzuna", level=2)
+    add_code(
+        doc,
+        "GET https://api.adzuna.com/v1/api/jobs/id/search/1\n"
+        "    ?app_id=YOUR_ID&app_key=YOUR_KEY&results_per_page=50&what=developer\n"
+        "{\n"
+        "  \"count\": 1234,\n"
+        "  \"results\": [\n"
+        "    {\n"
+        "      \"id\": \"5078123456\",\n"
+        "      \"title\": \"Backend Developer\",\n"
+        "      \"company\": { \"display_name\": \"PT Tokopedia\" },\n"
+        "      \"location\": {\n"
+        "        \"display_name\": \"Jakarta Selatan\",\n"
+        "        \"area\": [\"Indonesia\", \"DKI Jakarta\", \"Jakarta Selatan\"]\n"
+        "      },\n"
+        "      \"description\": \"...\",\n"
+        "      \"category\": { \"label\": \"IT Jobs\" },\n"
+        "      \"contract_type\": \"permanent\", \"contract_time\": \"full_time\",\n"
+        "      \"salary_min\": 15000000, \"salary_max\": 25000000,\n"
+        "      \"created\": \"2026-05-10T08:00:00Z\",\n"
+        "      \"redirect_url\": \"https://www.adzuna.com/redirect/...\"\n"
+        "    }, ...\n"
+        "  ]\n"
+        "}",
+    )
+
+    add_heading(doc, "12.9 Alur pipeline scraping & import", level=2)
+    for s in (
+        "1. Scraper Kalibrr menggunakan Playwright + Chrome CDP (port 29229) karena Kalibrr di-proteksi Cloudflare. Setiap URL kategori di-load, __NEXT_DATA__ di-ekstrak dengan document.querySelector, dan field di-pluck.",
+        "2. Scraper RemoteOK / arbeitnow / Jobicy / WWR menggunakan urllib.request standar — lebih ringan, tanpa browser.",
+        "3. Scraper Adzuna menggunakan urllib.request + dua env var (ADZUNA_APP_ID, ADZUNA_APP_KEY) dari kredensial gratis Adzuna Developer.",
+        "4. Hasil setiap scraper disimpan sebagai snapshot JSON di scrapers/data/<source>_jobs.json.",
+        "5. Importer (scrapers/import_kalibrr.py untuk Kalibrr, scrapers/import_external_jobs.py untuk sisanya) membaca JSON, melakukan dedup, dan INSERT ke tabel companies + jobs lewat helper backend.database.execute().",
+        "6. Importer bersifat idempotent: aman dijalankan berulang tanpa duplikasi.",
+    ):
+        add_bullet(doc, s)
+
+    add_heading(doc, "12.10 Cara menjalankan ulang scraping & import", level=2)
+    add_code(
+        doc,
+        "# 1. Pastikan Chrome berjalan di port 29229 (hanya untuk Kalibrr)\n"
+        "google-chrome --remote-debugging-port=29229 --user-data-dir=/tmp/cdp &\n\n"
+        "# 2. Jalankan semua scraper (paralel boleh)\n"
+        "python scrapers/kalibrr_scraper.py --max-jobs 300\n"
+        "python scrapers/remoteok_scraper.py\n"
+        "python scrapers/arbeitnow_scraper.py 16\n"
+        "python scrapers/jobicy_scraper.py\n"
+        "python scrapers/weworkremotely_scraper.py\n"
+        "# Adzuna butuh API key gratis dari https://developer.adzuna.com/signup\n"
+        "ADZUNA_APP_ID=xxx ADZUNA_APP_KEY=yyy python scrapers/adzuna_scraper.py\n\n"
+        "# 3. Import ke SQLite (dedup otomatis)\n"
+        "python scrapers/import_kalibrr.py\n"
+        "python scrapers/import_external_jobs.py",
+    )
+
+    add_heading(doc, "12.11 Catatan legal & rate-limit", level=2)
+    add_bullet(
+        doc,
+        "Semua sumber yang dipakai mengizinkan akses publik tanpa scraping ban di "
+        "ToS-nya (RemoteOK API publik, arbeitnow API publik, Jobicy 'free public API', "
+        "WWR RSS, Adzuna API key gratis). Untuk Kalibrr tidak ada API publik resmi, "
+        "namun __NEXT_DATA__ disajikan ke browser apapun yang me-load halaman.",
+    )
+    add_bullet(
+        doc,
+        "Rate limit diatur konservatif: 1.5-2 detik per URL untuk Kalibrr "
+        "(rate-limited Playwright), 0.4 detik antar request untuk REST API.",
+    )
+    add_bullet(
+        doc,
+        "Field 'Sumber: <URL>' selalu ditambahkan ke kolom requirements supaya "
+        "kandidat dapat melamar langsung ke halaman job-board asli.",
+    )
+    add_bullet(
+        doc,
+        "Daftar LinkedIn, Indeed, Glints, JobStreet, dan Kaggle TIDAK dipakai: "
+        "LinkedIn/Indeed/Glints/JobStreet diblok oleh Cloudflare anti-bot dari "
+        "cloud IP umum, sedangkan Kaggle bukan job board (platform kompetisi data science).",
+    )
+
     add_para(doc, "Selamat menggunakan RUMAH KARIR!")
 
     doc.save(OUTPUT)

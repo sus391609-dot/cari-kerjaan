@@ -119,7 +119,9 @@ def slugify(name: str) -> str:
 def find_or_create_company(name: str, *, industry: str | None = None,
                            description: str | None = None,
                            country: str | None = None) -> int:
-    name = (name or "").strip()
+    name = html.unescape((name or "").strip())
+    if industry:
+        industry = html.unescape(industry)
     if not name:
         return 0
     row = query_one(
@@ -156,7 +158,7 @@ def upsert_job(*, company_id: int, title: str, description: str | None,
                salary_min: int | None, salary_max: int | None,
                min_experience: int = 0, skills: str | None = None,
                dry_run: bool = False) -> str:
-    title = (title or "").strip()
+    title = html.unescape((title or "").strip())
     if not title or not company_id:
         return "skipped"
     row = query_one(
