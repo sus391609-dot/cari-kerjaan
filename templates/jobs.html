@@ -24,13 +24,21 @@
 </section>
 
 <section class="container section">
+  <div id="jobs-meta" class="muted" style="margin-bottom:12px;"></div>
   <div id="jobs-grid" class="grid"></div>
   <div id="jobs-empty" class="muted" style="display:none; padding:24px;">Tidak ada lowongan ditemukan.</div>
+  <div id="jobs-pager" class="flex center" style="justify-content:center; margin-top:18px; gap:10px;">
+    <button class="btn ghost" type="button" id="load-more-btn" style="display:none;">Tampilkan lebih banyak</button>
+  </div>
 </section>
 {% endblock %}
 {% block scripts %}
 <script>
 const me = {{ user|tojson|safe if user else 'null' }};
+const PER_PAGE = 24;
+let currentPage = 1;
+let currentTotal = 0;
+let currentLoaded = 0;
 
 async function loadProvinces() {
   const { data } = await window.api('/api/locations/provinces');
@@ -50,47 +58,83 @@ function readParams() {
   return usp;
 }
 
-function renderJobs(items) {
+function jobCardHtml(j) {
+  const locked = j._locked;
+  const skills = (j.skills || '').split(',').slice(0,5).filter(Boolean)
+    .map(s => `<span class="skill">${window.escapeHtml(s.trim())}</span>`).join('');
+  return `
+    <div class="card">
+      <div class="title">${window.escapeHtml(j.title)}</div>
+      <div class="meta">${window.escapeHtml(j.company_name)} • ${window.escapeHtml(j.city || '-')}, ${window.escapeHtml(j.country || '-')}</div>
+      <div class="skills">${skills}</div>
+      <div class="muted">${j.salary_min ? window.formatRp(j.salary_min) + ' – ' + window.formatRp(j.salary_max) : 'Gaji negosiasi'}</div>
+      <div class="flex between center" style="margin-top:8px;">
+        <span class="badge">${window.escapeHtml(j.employment_type || '-')}</span>
+        <a class="btn small ghost" href="/jobs/${j.id}">Lihat Selengkapnya</a>
+      </div>
+      ${locked ? `<div class="muted" style="font-size:12px;">🔒 Login untuk melihat detail lengkap perusahaan</div>` : ''}
+    </div>
+  `;
+}
+
+function renderJobs(items, { append } = { append: false }) {
   const grid = document.getElementById('jobs-grid');
   const empty = document.getElementById('jobs-empty');
-  if (!items.length) {
-    grid.innerHTML = '';
+  if (!append) grid.innerHTML = '';
+  if (!items.length && !append) {
     empty.style.display = '';
     return;
   }
   empty.style.display = 'none';
-  grid.innerHTML = items.map(j => {
-    const locked = j._locked;
-    return `
-      <div class="card">
-        <div class="title">${window.escapeHtml(j.title)}</div>
-        <div class="meta">${window.escapeHtml(j.company_name)} • ${window.escapeHtml(j.city || '-')}, ${window.escapeHtml(j.country || '-')}</div>
-        <div class="skills">
-          ${(j.skills || '').split(',').slice(0,5).filter(Boolean).map(s => `<span class="skill">${window.escapeHtml(s.trim())}</span>`).join('')}
-        </div>
-        <div class="muted">${j.salary_min ? window.formatRp(j.salary_min) + ' – ' + window.formatRp(j.salary_max) : 'Gaji negosiasi'}</div>
-        <div class="flex between center" style="margin-top:8px;">
-          <span class="badge">${window.escapeHtml(j.employment_type || '-')}</span>
-          <a class="btn small ghost" href="/jobs/${j.id}">Lihat Selengkapnya</a>
-        </div>
-        ${locked ? `<div class="muted" style="font-size:12px;">🔒 Login untuk melihat detail lengkap perusahaan</div>` : ''}
-      </div>
-    `;
-  }).join('');
+  grid.insertAdjacentHTML('beforeend', items.map(jobCardHtml).join(''));
+}
+
+function updatePager() {
+  const btn = document.getElementById('load-more-btn');
+  const meta = document.getElementById('jobs-meta');
+  if (currentTotal > 0) {
+    meta.textContent = `Menampilkan ${currentLoaded} dari ${currentTotal} lowongan`;
+  } else {
+    meta.textContent = '';
+  }
+  btn.style.display = currentLoaded < currentTotal ? '' : 'none';
+}
+
+async function fetchPage(page) {
+  const usp = new URLSearchParams(new FormData(document.getElementById('filter-form')));
+  usp.set('page', String(page));
+  usp.set('per_page', String(PER_PAGE));
+  const { data } = await window.api('/api/jobs?' + usp.toString());
+  return data || { items: [], total: 0, has_more: false };
 }
 
 async function search(e) {
   if (e) e.preventDefault();
   const usp = new URLSearchParams(new FormData(document.getElementById('filter-form')));
   history.replaceState(null, '', '/jobs?' + usp.toString());
-  const { data } = await window.api('/api/jobs?' + usp.toString());
-  renderJobs((data && data.items) || []);
+  currentPage = 1;
+  currentLoaded = 0;
+  const data = await fetchPage(currentPage);
+  currentTotal = data.total || 0;
+  currentLoaded = (data.items || []).length;
+  renderJobs(data.items || [], { append: false });
+  updatePager();
+}
+
+async function loadMore() {
+  currentPage += 1;
+  const data = await fetchPage(currentPage);
+  const items = data.items || [];
+  currentLoaded += items.length;
+  renderJobs(items, { append: true });
+  updatePager();
 }
 
 (async function () {
   await loadProvinces();
   readParams();
   document.getElementById('filter-form').addEventListener('submit', search);
+  document.getElementById('load-more-btn').addEventListener('click', loadMore);
   await search();
 })();
 </script>

@@ -27,14 +27,17 @@
 <script>
 const params = new URLSearchParams(window.location.search);
 const emailField = document.getElementById('email');
+const codeField = document.getElementById('code');
 if (params.get('email')) emailField.value = params.get('email');
+// Dev convenience: prefill OTP if it was passed through after a failed SMTP send.
+if (params.get('otp')) codeField.value = params.get('otp');
 
 document.getElementById('otp-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const msg = document.getElementById('otp-msg');
   const body = {
     email: emailField.value.trim(),
-    code: document.getElementById('code').value.trim(),
+    code: codeField.value.trim(),
   };
   const { ok, data } = await window.api('/api/auth/verify-otp', { method: 'POST', body });
   if (!ok || !data || !data.ok) {
@@ -48,10 +51,21 @@ document.getElementById('otp-form').addEventListener('submit', async (e) => {
 document.getElementById('resend-btn').addEventListener('click', async () => {
   const msg = document.getElementById('otp-msg');
   const { data } = await window.api('/api/auth/resend-otp', { method: 'POST', body: { email: emailField.value.trim() } });
-  if (data && data.ok) {
-    msg.innerHTML = '<div class="alert success">Kode OTP baru dikirim.</div>';
-  } else {
+  if (!data || !data.ok) {
     msg.innerHTML = `<div class="alert error">${window.escapeHtml((data && data.error) || 'Gagal mengirim ulang')}</div>`;
+    return;
+  }
+  if (data.otp_sent_via_smtp === false) {
+    const notice = data.dev_otp_notice
+      || 'OTP tidak terkirim lewat email — SMTP belum dikonfigurasi atau gagal login.';
+    let html = `<div class="alert error">${window.escapeHtml(notice)}</div>`;
+    if (data.dev_otp) {
+      html += `<div class="alert" style="margin-top:8px;">Kode OTP dev: <strong style="font-size:18px;letter-spacing:3px;">${window.escapeHtml(data.dev_otp)}</strong></div>`;
+      codeField.value = data.dev_otp;
+    }
+    msg.innerHTML = html;
+  } else {
+    msg.innerHTML = '<div class="alert success">Kode OTP baru dikirim ke email Anda.</div>';
   }
 });
 </script>

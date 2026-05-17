@@ -92,15 +92,22 @@ def register():
                 province, city, "Indonesia", description, logo_rel, 0,
             ),
         )
-        _, sent = create_and_send_otp(email, purpose="register")
-        return jsonify({
+        code, sent = create_and_send_otp(email, purpose="register")
+        payload = {
             "ok": True,
             "message": "Pendaftaran perusahaan diterima. Verifikasi email dengan OTP "
                        "yang dikirim ke gmail Anda, lalu menunggu persetujuan admin.",
             "email": email,
             "otp_sent_via_smtp": sent,
             "role": "company",
-        })
+        }
+        if not sent and current_app.debug:
+            payload["dev_otp"] = code
+            payload["dev_otp_notice"] = (
+                "SMTP belum dikonfigurasi atau gagal login. Karena FLASK_DEBUG aktif, "
+                "kode OTP ditampilkan di sini untuk dev. Cek log Flask atau .env."
+            )
+        return jsonify(payload)
 
     # Normal user
     full_name = (request.form.get("full_name") or "").strip()
@@ -117,15 +124,22 @@ def register():
         ("user", email, hash_password(password), full_name, username, birth_date,
          photo_rel, 0, 1),
     )
-    _, sent = create_and_send_otp(email, purpose="register")
-    return jsonify({
+    code, sent = create_and_send_otp(email, purpose="register")
+    payload = {
         "ok": True,
         "message": "Akun dibuat. Cek email Anda untuk kode OTP.",
         "email": email,
         "user_id": user_id,
         "otp_sent_via_smtp": sent,
         "role": "user",
-    })
+    }
+    if not sent and current_app.debug:
+        payload["dev_otp"] = code
+        payload["dev_otp_notice"] = (
+            "SMTP belum dikonfigurasi atau gagal login. Karena FLASK_DEBUG aktif, "
+            "kode OTP ditampilkan di sini untuk dev. Cek log Flask atau .env."
+        )
+    return jsonify(payload)
 
 
 @bp.post("/verify-otp")
@@ -147,8 +161,15 @@ def resend_otp():
     email = (data.get("email") or "").strip().lower()
     if not email:
         return jsonify({"error": "Email wajib diisi"}), 400
-    _, sent = create_and_send_otp(email, purpose="register")
-    return jsonify({"ok": True, "otp_sent_via_smtp": sent})
+    code, sent = create_and_send_otp(email, purpose="register")
+    payload = {"ok": True, "otp_sent_via_smtp": sent}
+    if not sent and current_app.debug:
+        payload["dev_otp"] = code
+        payload["dev_otp_notice"] = (
+            "SMTP belum dikonfigurasi atau gagal login. Karena FLASK_DEBUG aktif, "
+            "kode OTP ditampilkan di sini untuk dev. Cek log Flask atau .env."
+        )
+    return jsonify(payload)
 
 
 @bp.post("/login")
