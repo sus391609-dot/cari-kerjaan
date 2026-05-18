@@ -50,16 +50,16 @@ const jobId = {{ job_id|int }};
   }
   document.getElementById('job-body').innerHTML = `
     <h3>Deskripsi</h3>
-    <p>${window.escapeHtml(j.description || '-')}</p>
+    <div class="job-text">${window.escapeHtml(j.description || '-')}</div>
     <h3>Persyaratan</h3>
-    <p>${window.escapeHtml(j.requirements || '-')}</p>
+    <div class="job-text">${window.escapeHtml(j.requirements || '-')}</div>
     <p class="muted">Tipe: ${window.escapeHtml(j.employment_type || '-')} • Pengalaman min: ${j.min_experience || 0} tahun • Usia: ${j.min_age || '-'}–${j.max_age || '-'}</p>
     <p class="muted">Gaji: ${j.salary_min ? window.formatRp(j.salary_min) + ' – ' + window.formatRp(j.salary_max) : 'Negosiasi'}</p>
   `;
   document.getElementById('company-body').innerHTML = `
     <div style="font-weight:700;">${window.escapeHtml(j.company_name)}</div>
     <div class="muted">${window.escapeHtml(j.industry || '')}</div>
-    <p>${window.escapeHtml(j.company_description || '')}</p>
+    <div class="job-text">${window.escapeHtml(j.company_description || '')}</div>
     <p class="muted">Karyawan: ${window.escapeHtml(j.employees || '-')} • Berdiri: ${j.founded_year || '-'}</p>
     ${j.website ? `<p><a href="${window.escapeHtml(j.website)}" target="_blank" rel="noopener">Website</a></p>` : ''}
     <p class="muted">${window.escapeHtml(j.address || '')}</p>

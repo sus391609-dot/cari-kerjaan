@@ -45,6 +45,17 @@ def cv_upload():
     return render_template("cv_upload.html", user=current_user())
 
 
+@bp.get("/generate-cv")
+def generate_cv():
+    # Open to both logged-in and guest users so visitors can try the builder.
+    return render_template("generate_cv.html", user=current_user())
+
+
+@bp.get("/generate-cover-letter")
+def generate_cover_letter():
+    return render_template("generate_cover_letter.html", user=current_user())
+
+
 @bp.get("/share-experience")
 @login_required
 def share_experience():

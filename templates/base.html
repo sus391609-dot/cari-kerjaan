@@ -19,7 +19,9 @@
         <li><a href="/">Beranda</a></li>
         <li><a href="/jobs">Cari Kerja</a></li>
         <li><a href="/cv">Upload CV</a></li>
-        <li><a href="/share-experience">Bagikan Pengalaman</a></li>
+        <li><a href="/generate-cv">Generate CV</a></li>
+        <li><a href="/generate-cover-letter">Surat Lamaran</a></li>
+        <li><a href="/share-experience">Pengalaman</a></li>
       </ul>
       <div class="header-actions">
         {% if user %}
@@ -45,6 +47,8 @@
     <a href="/">Beranda</a>
     <a href="/jobs">Cari Kerja</a>
     <a href="/cv">Upload CV</a>
+    <a href="/generate-cv">Generate CV</a>
+    <a href="/generate-cover-letter">Generate Surat Lamaran</a>
     <a href="/share-experience">Bagikan Pengalaman</a>
     {% if user %}
       {% if user.role == 'admin' %}<a href="/admin">Dashboard Admin</a>{% endif %}

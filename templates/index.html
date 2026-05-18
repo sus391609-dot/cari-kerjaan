@@ -5,39 +5,81 @@
 <section class="hero">
   <div class="container">
     <h1>Temukan pekerjaan impian Anda di RUMAH KARIR</h1>
-    <p>Cari lowongan di Indonesia & luar negeri. Upload CV untuk pencocokan otomatis dengan perusahaan yang sedang membuka lowongan.</p>
+    <p>Cari lowongan di Indonesia & luar negeri. Upload CV untuk pencocokan otomatis, atau buat CV &amp; surat lamaran standar internasional langsung dari sini.</p>
+
+    {# Quick-action cards — sit above the search engine so the user can either
+       upload an existing CV for matching or jump into the generator pages. #}
+    <div class="hero-tools">
+      <div class="hero-tool-card">
+        <h3>Upload CV Anda</h3>
+        <p>Sistem akan membaca <strong>umur</strong>, <strong>skill</strong>, dan <strong>pengalaman</strong> dari CV PDF lalu mencocokkan dengan lowongan yang sedang dibuka.</p>
+        {% if user %}
+          <form id="quick-cv-form" enctype="multipart/form-data">
+            <div class="file-row">
+              <input type="file" name="cv" accept="application/pdf" required />
+              <button class="btn" type="submit">Cocokkan</button>
+            </div>
+          </form>
+          <div id="quick-cv-result" class="quick-result" style="display:none;"></div>
+        {% else %}
+          <p class="muted">Anda perlu <a href="/login">login</a> untuk mengunggah CV. Setelah login, file PDF langsung diparsing dan dicocokkan dengan lowongan.</p>
+          <div class="actions">
+            <a class="btn" href="/login">Login</a>
+            <a class="btn ghost" href="/register">Daftar Gratis</a>
+          </div>
+        {% endif %}
+      </div>
+      <div class="hero-tool-card">
+        <h3>Buat CV &amp; Surat Lamaran</h3>
+        <p>Belum punya CV? Generate CV standar internasional atau surat lamaran (versi Indonesia &amp; Internasional) langsung di sini, lalu simpan ke PDF.</p>
+        <div class="actions">
+          <a class="btn" href="/generate-cv">Generate CV</a>
+          <a class="btn ghost" href="/generate-cover-letter">Generate Surat Lamaran</a>
+        </div>
+      </div>
+    </div>
+
     <div id="search-root"></div>
   </div>
 </section>
 
 <section class="section container">
-  <div class="flex between center" style="margin-bottom:14px;">
-    <h2 style="margin:0;">Lowongan Terbaru</h2>
-    <a class="btn ghost" href="/jobs">Lihat semua</a>
+  <div class="section-title-row">
+    <h2>Lowongan Terbaru</h2>
+    <div class="flex center gap-8">
+      <span class="meta-pill" id="latest-meta">memuat…</span>
+      <a class="btn ghost" href="/jobs">Lihat semua lowongan</a>
+    </div>
   </div>
-  <div id="latest-jobs" class="grid">
+  <div id="latest-jobs" class="grid-2x2">
     <div class="muted" style="grid-column:1/-1; padding:24px 0;">Memuat lowongan terbaru…</div>
   </div>
 </section>
 
 <section class="section container">
-  <h2>Top 10 Perusahaan Membuka Banyak Lowongan</h2>
-  <div id="top-openings" class="grid">
+  <div class="section-title-row">
+    <h2>Top Perusahaan Membuka Banyak Lowongan</h2>
+    <a class="btn ghost" href="/jobs">Lihat lowongan</a>
+  </div>
+  <div id="top-openings" class="grid-2x2">
     <div class="muted" style="grid-column:1/-1; padding:24px 0;">Memuat data perusahaan…</div>
   </div>
 </section>
 
 <section class="section container">
-  <h2>Perusahaan Paling Banyak Dicari</h2>
-  <div id="top-searched" class="grid">
+  <div class="section-title-row">
+    <h2>Perusahaan Paling Banyak Dicari</h2>
+    <span class="meta-pill" id="searched-meta">Top 4 hari ini</span>
+  </div>
+  <div id="top-searched" class="grid-2x2">
     <div class="muted" style="grid-column:1/-1; padding:24px 0;">Memuat data perusahaan…</div>
   </div>
 </section>
 
 <section class="section container">
-  <div class="flex between center" style="margin-bottom:14px;">
-    <h2 style="margin:0;">RUMAH KARIR di Seluruh Indonesia</h2>
-    <span class="muted" id="region-status">Klik provinsi untuk filter</span>
+  <div class="section-title-row">
+    <h2>RUMAH KARIR di Seluruh Indonesia</h2>
+    <span class="meta-pill" id="region-status">Klik provinsi untuk filter</span>
   </div>
   <div class="id-map reveal-scale">
     <div class="map-legend">
@@ -64,8 +106,8 @@
 </section>
 
 <section class="section container">
-  <div class="flex between center" style="margin-bottom:14px;">
-    <h2 style="margin:0;">Pengalaman Pengguna</h2>
+  <div class="section-title-row">
+    <h2>Pengalaman Pengguna</h2>
     <a class="btn ghost" href="/share-experience">Bagikan Pengalaman Anda</a>
   </div>
   <div id="experiences" class="grid">
@@ -130,16 +172,10 @@ ReactDOM.createRoot(document.getElementById('search-root')).render(<SearchEngine
 <script>
 // Homepage data loader.
 //
-// Each section fetches independently (Promise.allSettled) so a single failure
-// (e.g. a slow endpoint, transient 500) does not block the other sections.
-// While a fetch is in flight we keep the "Memuat…" placeholder from the HTML;
-// on success we render cards, on empty data we render an empty-state message,
-// and on error we render a recoverable error message.
-//
-// We also force-add the `.in` class to the parent .reveal section as soon as a
-// section's content is rendered. This prevents the scroll-reveal animation in
-// effects.js from leaving freshly-mounted content invisible until the 5-second
-// safety-net timer fires.
+// The curated sections (latest jobs, top openings, most-searched) intentionally
+// render only the top 4 items in a 2x2 grid so the homepage stays light.
+// The full 11k+ jobs are reachable via the "Lihat semua lowongan" CTAs and the
+// /jobs search page (paginated).
 (function () {
   const escapeHtml = window.escapeHtml || function (s) { return String(s == null ? '' : s); };
   const formatRp = window.formatRp || function (n) {
@@ -183,8 +219,12 @@ ReactDOM.createRoot(document.getElementById('search-root')).render(<SearchEngine
 
   async function loadLatestJobs() {
     try {
-      const data = await safeApi('/api/jobs?per_page=8');
-      const items = data.items || [];
+      const data = await safeApi('/api/jobs?per_page=4');
+      const items = (data.items || []).slice(0, 4);
+      const meta = document.getElementById('latest-meta');
+      if (meta && data.total != null) {
+        meta.textContent = Number(data.total).toLocaleString('id-ID') + ' lowongan aktif';
+      }
       if (items.length === 0) {
         render('latest-jobs', emptyState('Belum ada lowongan. Jalankan `python seed.py` lalu refresh halaman.'));
         return;
@@ -210,18 +250,18 @@ ReactDOM.createRoot(document.getElementById('search-root')).render(<SearchEngine
   async function loadTopOpenings() {
     try {
       const data = await safeApi('/api/companies/top-openings');
-      const items = data.items || [];
+      const items = (data.items || []).slice(0, 4);
       if (items.length === 0) {
         render('top-openings', emptyState('Belum ada perusahaan dengan lowongan aktif.'));
         return;
       }
       render('top-openings', items.map(function (c) {
         return ''
-          + '<div class="card">'
+          + '<a class="card" href="/jobs?q=' + encodeURIComponent(c.name) + '">'
           +   '<div class="title">' + escapeHtml(c.name) + '</div>'
           +   '<div class="meta">' + escapeHtml(c.industry || '-') + '</div>'
           +   '<div class="muted">' + (c.open_jobs || 0) + ' lowongan aktif</div>'
-          + '</div>';
+          + '</a>';
       }).join(''));
     } catch (e) {
       console.warn('top-openings failed:', e);
@@ -232,18 +272,18 @@ ReactDOM.createRoot(document.getElementById('search-root')).render(<SearchEngine
   async function loadTopSearched() {
     try {
       const data = await safeApi('/api/companies/top-searched');
-      const items = data.items || [];
+      const items = (data.items || []).slice(0, 4);
       if (items.length === 0) {
         render('top-searched', emptyState('Belum ada perusahaan yang dilihat pengguna.'));
         return;
       }
       render('top-searched', items.map(function (c) {
         return ''
-          + '<div class="card">'
+          + '<a class="card" href="/jobs?q=' + encodeURIComponent(c.name) + '">'
           +   '<div class="title">' + escapeHtml(c.name) + '</div>'
           +   '<div class="meta">' + escapeHtml(c.industry || '-') + '</div>'
           +   '<div class="muted">' + (c.search_count || 0) + ' kali dilihat</div>'
-          + '</div>';
+          + '</a>';
       }).join(''));
     } catch (e) {
       console.warn('top-searched failed:', e);
@@ -257,9 +297,10 @@ ReactDOM.createRoot(document.getElementById('search-root')).render(<SearchEngine
       const u = document.getElementById('stat-users');
       const c = document.getElementById('stat-companies');
       const j = document.getElementById('stat-jobs');
-      if (u) u.textContent = data.users || 0;
-      if (c) c.textContent = data.companies || 0;
-      if (j) j.textContent = data.jobs || 0;
+      const fmt = function (n) { return Number(n || 0).toLocaleString('id-ID'); };
+      if (u) u.textContent = fmt(data.users);
+      if (c) c.textContent = fmt(data.companies);
+      if (j) j.textContent = fmt(data.jobs);
       revealAncestor(u || c || j);
     } catch (e) {
       console.warn('stats failed:', e);
@@ -335,6 +376,40 @@ ReactDOM.createRoot(document.getElementById('search-root')).render(<SearchEngine
     });
   }
 
+  function initQuickCv() {
+    const form = document.getElementById('quick-cv-form');
+    if (!form) return;
+    const out = document.getElementById('quick-cv-result');
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      out.style.display = '';
+      out.innerHTML = '<span class="muted">Memproses CV…</span>';
+      const fd = new FormData(form);
+      try {
+        const res = await fetch('/api/cv/upload', { method: 'POST', body: fd, credentials: 'same-origin' });
+        const data = await res.json().catch(function () { return null; });
+        if (!res.ok || !data || !data.ok) {
+          out.innerHTML = '<span class="alert error" style="display:block;">' + escapeHtml((data && data.error) || 'Gagal memproses CV') + '</span>';
+          return;
+        }
+        const p = data.parsed || {};
+        const skills = (p.skills || []).map(function (s) { return '<span class="skill">' + escapeHtml(s) + '</span>'; }).join(' ') || '<span class="muted">tidak terdeteksi</span>';
+        const top = (data.matches || [])[0];
+        const topLine = top
+          ? '<div style="margin-top:6px;"><strong>Match terbaik:</strong> <a href="/jobs/' + top.job_id + '">' + escapeHtml(top.job_title) + '</a> di ' + escapeHtml(top.company_name) + ' (' + top.score + '/100)</div>'
+          : '<div class="muted" style="margin-top:6px;">Belum ada lowongan yang sangat cocok. <a href="/cv">Lihat saran skill</a>.</div>';
+        out.innerHTML = ''
+          + '<div><strong>Umur:</strong> ' + (p.age || '-') + ' tahun &nbsp; <strong>Pengalaman:</strong> ' + (p.experience_years || 0) + ' tahun</div>'
+          + '<div class="skills" style="margin-top:6px;">' + skills + '</div>'
+          + topLine
+          + '<div style="margin-top:8px;"><a class="btn small ghost" href="/cv">Lihat semua match</a></div>';
+      } catch (err) {
+        console.warn('quick-cv failed:', err);
+        out.innerHTML = '<span class="alert error" style="display:block;">Gagal mengunggah CV. Coba lagi.</span>';
+      }
+    });
+  }
+
   Promise.allSettled([
     loadLatestJobs(),
     loadTopOpenings(),
@@ -344,6 +419,7 @@ ReactDOM.createRoot(document.getElementById('search-root')).render(<SearchEngine
     loadExperiences(),
   ]);
   initMap();
+  initQuickCv();
 })();
 </script>
 {% endblock %}
