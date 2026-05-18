@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+{% block title %}Generate Surat Lamaran — RUMAH KARIR{% endblock %}
+
+{% block content %}
+<section class="container section">
+  <div class="section-title-row">
+    <h2>Generate Surat Lamaran</h2>
+    <span class="meta-pill">Indonesia &amp; Internasional · siap dicetak</span>
+  </div>
+  <p class="muted" style="margin-top:-6px; margin-bottom:18px;">
+    Isi data standar lamaran Indonesia di panel kiri. Anda bisa beralih antara
+    template <strong>Indonesia</strong> (Hal/Lampiran, Yth., Dengan hormat …)
+    dan <strong>Internasional</strong> (Dear …, Sincerely …) tanpa kehilangan data.
+  </p>
+
+  <div class="builder-layout">
+    <form id="letter-form" class="builder-form" autocomplete="off">
+      <h3>Template</h3>
+      <div class="template-switch" id="letter-template-switch">
+        <button type="button" data-tpl="id" class="active">Indonesia</button>
+        <button type="button" data-tpl="intl">Internasional</button>
+      </div>
+
+      <h3>Data Pelamar</h3>
+      <div class="form-row">
+        <label>Nama Lengkap</label>
+        <input type="text" data-field="applicant_name" placeholder="Andi Pratama" />
+      </div>
+      <div class="form-row">
+        <label>Alamat</label>
+        <textarea data-field="applicant_address" rows="2" placeholder="Jl. Sudirman No. 1, Jakarta Selatan 12190"></textarea>
+      </div>
+      <div class="form-grid cols-2">
+        <div class="form-row"><label>Email</label><input type="email" data-field="applicant_email" /></div>
+        <div class="form-row"><label>Telepon</label><input type="text" data-field="applicant_phone" /></div>
+      </div>
+      <div class="form-grid cols-2">
+        <div class="form-row"><label>Tempat &amp; Tanggal Surat</label><input type="text" data-field="letter_place_date" placeholder="Jakarta, 18 Mei 2026" /></div>
+        <div class="form-row"><label>Lampiran (opsional)</label><input type="text" data-field="enclosure_count" placeholder="Mis: 1 (satu) berkas" /></div>
+      </div>
+      <div class="form-row">
+        <label>Hal / Subject</label>
+        <input type="text" data-field="subject" placeholder="Lamaran Pekerjaan Senior Backend Engineer" />
+      </div>
+
+      <h3>Penerima</h3>
+      <div class="form-row">
+        <label>Yth. (Nama / Jabatan)</label>
+        <input type="text" data-field="recipient_name" placeholder="HRD Manager" />
+      </div>
+      <div class="form-row">
+        <label>Nama Perusahaan</label>
+        <input type="text" data-field="company_name" placeholder="PT Contoh Indonesia" />
+      </div>
+      <div class="form-row">
+        <label>Alamat Perusahaan</label>
+        <textarea data-field="company_address" rows="2" placeholder="Jl. MH Thamrin No. 10, Jakarta Pusat"></textarea>
+      </div>
+
+      <h3>Detail Lamaran</h3>
+      <div class="form-row">
+        <label>Posisi yang dilamar</label>
+        <input type="text" data-field="position" placeholder="Senior Backend Engineer" />
+      </div>
+      <div class="form-row">
+        <label>Sumber Lowongan (opsional)</label>
+        <input type="text" data-field="source" placeholder="RUMAH KARIR, LinkedIn, dll." />
+      </div>
+
+      <h3>Profil Singkat</h3>
+      <p class="muted" style="font-size:12.5px; margin-top:-6px;">
+        Tuliskan 1-3 paragraf alasan Anda cocok. Bila dikosongkan, akan dipakai paragraf default.
+      </p>
+      <div class="form-row">
+        <textarea data-field="body" rows="6" placeholder="Saya memiliki 6 tahun pengalaman sebagai Backend Engineer …"></textarea>
+      </div>
+
+      <h3>Berkas Terlampir</h3>
+      <div class="form-row">
+        <textarea data-field="attachments" rows="3" placeholder="Satu item per baris. Mis:
+Curriculum Vitae
+Fotokopi KTP
+Pas foto 4x6"></textarea>
+      </div>
+    </form>
+
+    <div class="builder-preview-wrap">
+      <div class="builder-preview-toolbar">
+        <button class="btn" id="btn-print" type="button">Cetak / Simpan PDF</button>
+        <button class="btn ghost" id="btn-load-sample" type="button">Isi Contoh</button>
+        <button class="btn ghost" id="btn-reset" type="button">Reset</button>
+        <span class="muted" style="font-size:12.5px;">Data tersimpan otomatis di browser ini.</span>
+      </div>
+      <div id="letter-preview" class="doc-sheet letter letter-id" aria-label="Preview Surat Lamaran"></div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const LS_KEY = 'rumahkarir_letter_v1';
+  const escape = window.escapeHtml;
+
+  const EMPTY = {
+    template: 'id',
+    applicant_name: '', applicant_address: '', applicant_email: '', applicant_phone: '',
+    letter_place_date: '', enclosure_count: '', subject: '',
+    recipient_name: '', company_name: '', company_address: '',
+    position: '', source: '', body: '', attachments: ''
+  };
+  const SAMPLE = {
+    template: 'id',
+    applicant_name: 'Andi Pratama',
+    applicant_address: 'Jl. Sudirman No. 1, Jakarta Selatan 12190',
+    applicant_email: 'andi.pratama@example.com',
+    applicant_phone: '+62 812 3456 7890',
+    letter_place_date: 'Jakarta, 18 Mei 2026',
+    enclosure_count: '1 (satu) berkas',
+    subject: 'Lamaran Pekerjaan Senior Backend Engineer',
+    recipient_name: 'HRD Manager',
+    company_name: 'PT Contoh Indonesia',
+    company_address: 'Jl. MH Thamrin No. 10, Jakarta Pusat 10350',
+    position: 'Senior Backend Engineer',
+    source: 'RUMAH KARIR',
+    body: 'Saya memiliki pengalaman 6 tahun mengembangkan layanan backend dengan Python dan Go untuk perusahaan teknologi besar di Indonesia. Pada peran terakhir saya di Tokopedia, saya memimpin migrasi monolit ke microservices yang menurunkan latency p95 sebesar 38%.\n\nSaya tertarik bergabung di PT Contoh Indonesia karena fokus perusahaan pada produk fintech yang berdampak luas. Saya siap memberikan kontribusi pada arsitektur sistem yang andal, dan saya percaya kombinasi keahlian teknis serta pengalaman lintas tim saya cocok dengan kebutuhan posisi ini.\n\nBesar harapan saya untuk diberi kesempatan wawancara guna mendiskusikan kontribusi yang dapat saya berikan.',
+    attachments: 'Curriculum Vitae\nFotokopi KTP\nFotokopi Ijazah & Transkrip\nPas foto 4x6\nSertifikat Pendukung'
+  };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) return Object.assign({}, EMPTY, JSON.parse(raw));
+    } catch (_) {}
+    return Object.assign({}, EMPTY);
+  }
+  function save(s) { try { localStorage.setItem(LS_KEY, JSON.stringify(s)); } catch (_) {} }
+  let state = load();
+
+  function renderForm() {
+    document.querySelectorAll('[data-field]').forEach(function (el) {
+      el.value = state[el.getAttribute('data-field')] || '';
+    });
+    document.querySelectorAll('#letter-template-switch button').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-tpl') === state.template);
+    });
+  }
+
+  function bodyOrDefault() {
+    if (state.body && state.body.trim()) return state.body;
+    const pos = state.position ? state.position : 'posisi yang Bapak/Ibu tawarkan';
+    return 'Dengan hormat,\n\nBerdasarkan informasi lowongan ' + pos + ' yang saya peroleh' + (state.source ? ' dari ' + state.source : '') + ', dengan ini saya bermaksud mengajukan lamaran kerja pada perusahaan yang Bapak/Ibu pimpin.\n\nSaya yakin pengalaman dan keahlian saya relevan dengan posisi tersebut. Bersama surat ini saya lampirkan berkas pendukung untuk bahan pertimbangan Bapak/Ibu.';
+  }
+
+  function attachmentsList() {
+    return (state.attachments || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  function renderIndonesia() {
+    const atts = attachmentsList();
+    const attsHtml = atts.length
+      ? '<div class="enclosures"><strong>Berkas terlampir:</strong><ul>' + atts.map(function (a) { return '<li>' + escape(a) + '</li>'; }).join('') + '</ul></div>'
+      : '';
+    return ''
+      + '<div class="header-id">'
+      +   '<div class="left">'
+      +     (state.enclosure_count ? '<div>Lampiran : ' + escape(state.enclosure_count) + '</div>' : '')
+      +     (state.subject ? '<div>Hal&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <strong>' + escape(state.subject) + '</strong></div>' : '')
+      +   '</div>'
+      +   '<div class="right">' + escape(state.letter_place_date || '') + '</div>'
+      + '</div>'
+      + '<div class="recipient">'
+      +   'Kepada Yth.,<br>'
+      +   '<span class="name">' + escape(state.recipient_name || 'HRD Manager') + '</span><br>'
+      +   escape(state.company_name || 'Nama Perusahaan') + '<br>'
+      +   escape(state.company_address || '')
+      + '</div>'
+      + '<div class="salutation">Dengan hormat,</div>'
+      + '<div class="body-text">'
+      +   'Yang bertanda tangan di bawah ini:<br>'
+      +   '<table style="border-collapse:collapse; margin:8px 0 14px;">'
+      +     '<tr><td style="padding:1px 14px 1px 0;">Nama</td><td>: ' + escape(state.applicant_name || '-') + '</td></tr>'
+      +     '<tr><td style="padding:1px 14px 1px 0;">Alamat</td><td>: ' + escape(state.applicant_address || '-') + '</td></tr>'
+      +     '<tr><td style="padding:1px 14px 1px 0;">Email</td><td>: ' + escape(state.applicant_email || '-') + '</td></tr>'
+      +     '<tr><td style="padding:1px 14px 1px 0;">Telepon</td><td>: ' + escape(state.applicant_phone || '-') + '</td></tr>'
+      +   '</table>'
+      +   'bermaksud mengajukan lamaran kerja untuk posisi <strong>' + escape(state.position || '-') + '</strong>' + (state.source ? ' yang saya peroleh dari ' + escape(state.source) : '') + ' di ' + escape(state.company_name || 'perusahaan yang Bapak/Ibu pimpin') + '.\n\n'
+      +   escape(bodyOrDefault()) + '\n\n'
+      +   'Demikian surat lamaran ini saya buat dengan sebenar-benarnya. Atas perhatian dan kesempatan yang diberikan, saya mengucapkan terima kasih.'
+      + '</div>'
+      + '<div class="closing">Hormat saya,</div>'
+      + '<div class="signature">' + escape(state.applicant_name || '') + '</div>'
+      + attsHtml;
+  }
+
+  function renderInternational() {
+    const atts = attachmentsList();
+    const attsHtml = atts.length
+      ? '<div class="enclosures"><strong>Enclosures:</strong><ul>' + atts.map(function (a) { return '<li>' + escape(a) + '</li>'; }).join('') + '</ul></div>'
+      : '';
+    return ''
+      + '<div class="applicant">'
+      +   '<div class="name">' + escape(state.applicant_name || 'Your Name') + '</div>'
+      +   '<div class="meta">' + escape(state.applicant_address || '') + '</div>'
+      +   '<div class="meta">' + [state.applicant_email, state.applicant_phone].filter(Boolean).map(escape).join(' · ') + '</div>'
+      + '</div>'
+      + '<div class="date-line">' + escape(state.letter_place_date || '') + '</div>'
+      + '<div class="recipient">'
+      +   '<div class="name">' + escape(state.recipient_name || 'Hiring Manager') + '</div>'
+      +   '<div>' + escape(state.company_name || 'Company Name') + '</div>'
+      +   '<div>' + escape(state.company_address || '') + '</div>'
+      + '</div>'
+      + (state.subject ? '<div class="subject">Re: ' + escape(state.subject) + '</div>' : '')
+      + '<div class="salutation">Dear ' + escape(state.recipient_name || 'Hiring Manager') + ',</div>'
+      + '<div class="body-text">'
+      +   'I am writing to apply for the <strong>' + escape(state.position || '—') + '</strong> position at ' + escape(state.company_name || 'your company') + (state.source ? ', which I learned about through ' + escape(state.source) : '') + '.\n\n'
+      +   escape(bodyOrDefault()) + '\n\n'
+      +   'I would welcome the opportunity to discuss how my background can support your team. Thank you for your time and consideration.'
+      + '</div>'
+      + '<div class="closing">Sincerely,</div>'
+      + '<div class="signature">' + escape(state.applicant_name || '') + '</div>'
+      + attsHtml;
+  }
+
+  function renderPreview() {
+    const el = document.getElementById('letter-preview');
+    el.className = 'doc-sheet letter ' + (state.template === 'intl' ? 'letter-intl' : 'letter-id');
+    el.innerHTML = state.template === 'intl' ? renderInternational() : renderIndonesia();
+  }
+
+  function renderAll() { renderForm(); renderPreview(); }
+
+  document.addEventListener('input', function (e) {
+    const t = e.target;
+    if (t && t.matches && t.matches('#letter-form [data-field]')) {
+      state[t.getAttribute('data-field')] = t.value;
+      save(state); renderPreview();
+    }
+  });
+  document.addEventListener('click', function (e) {
+    const t = e.target;
+    if (!t || !t.matches) return;
+    if (t.matches('#letter-template-switch button')) {
+      state.template = t.getAttribute('data-tpl');
+      save(state); renderAll();
+    } else if (t.id === 'btn-print') {
+      window.print();
+    } else if (t.id === 'btn-load-sample') {
+      state = Object.assign({}, SAMPLE);
+      save(state); renderAll();
+    } else if (t.id === 'btn-reset') {
+      if (confirm('Kosongkan semua data surat lamaran?')) {
+        state = Object.assign({}, EMPTY);
+        save(state); renderAll();
+      }
+    }
+  });
+
+  renderAll();
+})();
+</script>
+{% endblock %}

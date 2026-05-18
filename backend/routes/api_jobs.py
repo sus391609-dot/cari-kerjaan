@@ -1,6 +1,9 @@
 """Job / company search RESTful endpoints."""
 from __future__ import annotations
 
+import html
+import re
+
 from flask import Blueprint, jsonify, request
 
 from ..auth import current_user
@@ -8,6 +11,30 @@ from ..database import execute, query_all, query_one
 
 
 bp = Blueprint("api_jobs", __name__, url_prefix="/api")
+
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _clean_html(text: str | None) -> str:
+    """Convert leftover HTML in stored fields (scraped data) to plain text.
+
+    Older imports stored raw HTML in ``jobs.description`` / ``requirements``
+    which then surfaced as escaped markup in the UI ("selengkapnya" bug).
+    We normalise block-level tags to line breaks, bullet ``<li>`` items, and
+    drop everything else so the frontend can render the text safely.
+    """
+    if not text:
+        return ""
+    s = str(text)
+    s = re.sub(r"</(li|p|div|h[1-6]|tr|ol|ul)>", "\n", s, flags=re.I)
+    s = re.sub(r"<br\s*/?>", "\n", s, flags=re.I)
+    s = re.sub(r"<li[^>]*>", "\u2022 ", s, flags=re.I)
+    s = _TAG_RE.sub("", s)
+    s = html.unescape(s)
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    s = re.sub(r"[ \t]+\n", "\n", s)
+    return s.strip()
 
 
 def _row_to_dict(row) -> dict:
@@ -105,6 +132,11 @@ def job_detail(job_id: int):
         (d["company_id"],),
     )
     execute("INSERT INTO company_search_log(company_id) VALUES(?)", (d["company_id"],))
+    # Normalise any HTML that slipped into the stored description/requirements
+    # so the frontend can render it safely (no raw <div>/<ul> showing).
+    d["description"] = _clean_html(d.get("description"))
+    d["requirements"] = _clean_html(d.get("requirements"))
+    d["company_description"] = _clean_html(d.get("company_description"))
     return jsonify({"item": d})
 
 

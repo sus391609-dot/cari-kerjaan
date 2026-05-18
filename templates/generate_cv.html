@@ -1,0 +1,395 @@
+{% extends 'base.html' %}
+{% block title %}Generate CV — RUMAH KARIR{% endblock %}
+
+{% block content %}
+<section class="container section">
+  <div class="section-title-row">
+    <h2>Generate CV Standar Internasional</h2>
+    <span class="meta-pill">Preview live · siap dicetak ke PDF</span>
+  </div>
+  <p class="muted" style="margin-top:-6px; margin-bottom:18px;">
+    Isi data Anda di panel kiri. Preview di kanan akan otomatis mengikuti perubahan.
+    Klik <strong>Cetak / Simpan PDF</strong> untuk mengekspor — pilih "Save as PDF"
+    di dialog cetak browser Anda.
+  </p>
+
+  <div class="builder-layout">
+    {# --------- FORM --------- #}
+    <form id="cv-form" class="builder-form" autocomplete="off">
+      <h3>Template</h3>
+      <div class="template-switch" id="cv-template-switch">
+        <button type="button" data-tpl="modern" class="active">Modern</button>
+        <button type="button" data-tpl="classic">Klasik</button>
+      </div>
+
+      <h3>Identitas</h3>
+      <div class="form-row">
+        <label>Foto Profil (opsional)</label>
+        <input type="file" id="cv-photo" accept="image/*" />
+      </div>
+      <div class="form-row">
+        <label>Nama Lengkap</label>
+        <input type="text" data-field="full_name" placeholder="Mis: Andi Pratama" />
+      </div>
+      <div class="form-row">
+        <label>Posisi / Headline</label>
+        <input type="text" data-field="headline" placeholder="Mis: Senior Backend Engineer" />
+      </div>
+      <div class="form-grid cols-2">
+        <div class="form-row"><label>Email</label><input type="email" data-field="email" /></div>
+        <div class="form-row"><label>Telepon</label><input type="text" data-field="phone" /></div>
+      </div>
+      <div class="form-grid cols-2">
+        <div class="form-row"><label>Tanggal Lahir</label><input type="date" data-field="dob" /></div>
+        <div class="form-row"><label>Kewarganegaraan</label><input type="text" data-field="nationality" placeholder="Indonesia" /></div>
+      </div>
+      <div class="form-row">
+        <label>Alamat</label>
+        <input type="text" data-field="address" placeholder="Kota, Provinsi, Negara" />
+      </div>
+      <div class="form-grid cols-2">
+        <div class="form-row"><label>LinkedIn / Website</label><input type="text" data-field="website" placeholder="linkedin.com/in/…" /></div>
+        <div class="form-row"><label>GitHub / Portofolio</label><input type="text" data-field="portfolio" /></div>
+      </div>
+
+      <h3>Ringkasan Profesional</h3>
+      <div class="form-row">
+        <textarea data-field="summary" rows="4" placeholder="3-5 kalimat tentang pengalaman, keahlian utama, dan tujuan karir Anda."></textarea>
+      </div>
+
+      <h3>Pengalaman Kerja</h3>
+      <div class="row-list" id="exp-list"></div>
+      <button type="button" class="btn ghost small" id="add-exp" style="margin-top:8px;">+ Tambah Pengalaman</button>
+
+      <h3 style="margin-top:14px;">Pendidikan</h3>
+      <div class="row-list" id="edu-list"></div>
+      <button type="button" class="btn ghost small" id="add-edu" style="margin-top:8px;">+ Tambah Pendidikan</button>
+
+      <h3 style="margin-top:14px;">Skills</h3>
+      <div class="form-row">
+        <textarea data-field="skills" rows="3" placeholder="Pisahkan dengan koma. Mis: Python, SQL, Docker, AWS"></textarea>
+      </div>
+
+      <h3>Bahasa</h3>
+      <div class="form-row">
+        <textarea data-field="languages" rows="2" placeholder="Mis: Bahasa Indonesia (Native), English (Professional), Mandarin (Beginner)"></textarea>
+      </div>
+
+      <h3>Sertifikasi / Penghargaan</h3>
+      <div class="form-row">
+        <textarea data-field="certifications" rows="3" placeholder="Satu item per baris. Mis: AWS Certified Solutions Architect (2024)"></textarea>
+      </div>
+
+      <h3>Referensi</h3>
+      <div class="form-row">
+        <textarea data-field="references" rows="2" placeholder="Mis: Available upon request — atau cantumkan nama, posisi, kontak."></textarea>
+      </div>
+    </form>
+
+    {# --------- PREVIEW --------- #}
+    <div class="builder-preview-wrap">
+      <div class="builder-preview-toolbar">
+        <button class="btn" id="btn-print" type="button">Cetak / Simpan PDF</button>
+        <button class="btn ghost" id="btn-load-sample" type="button">Isi Contoh</button>
+        <button class="btn ghost" id="btn-reset" type="button">Reset</button>
+        <span class="muted" style="font-size:12.5px;">Perubahan tersimpan otomatis di browser ini.</span>
+      </div>
+      <div id="cv-preview" class="doc-sheet cv-modern" aria-label="Preview CV"></div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const LS_KEY = 'rumahkarir_cv_v1';
+  const escape = window.escapeHtml;
+
+  const SAMPLE = {
+    template: 'modern',
+    full_name: 'Andi Pratama',
+    headline: 'Senior Backend Engineer',
+    email: 'andi.pratama@example.com',
+    phone: '+62 812 3456 7890',
+    dob: '1996-04-15',
+    nationality: 'Indonesia',
+    address: 'Jakarta Selatan, DKI Jakarta, Indonesia',
+    website: 'linkedin.com/in/andipratama',
+    portfolio: 'github.com/andipratama',
+    summary: 'Backend engineer dengan 6+ tahun pengalaman membangun sistem distribusi dengan Python, Go, dan AWS. Berfokus pada skalabilitas, kualitas kode, dan kolaborasi lintas tim.',
+    experience: [
+      { role: 'Senior Backend Engineer', company: 'Tokopedia', start: '2022-01', end: 'Sekarang', location: 'Jakarta', body: '• Memimpin migrasi monolit ke microservices, menurunkan latency p95 sebesar 38%.\n• Membangun pipeline data real-time menggunakan Kafka & Flink.\n• Mentor 4 engineer junior.' },
+      { role: 'Backend Engineer', company: 'Bukalapak', start: '2019-03', end: '2021-12', location: 'Jakarta', body: '• Mengembangkan layanan pembayaran dengan Go dan PostgreSQL.\n• Mengurangi error rate API sebesar 27% melalui observability stack baru.' }
+    ],
+    education: [
+      { school: 'Universitas Indonesia', degree: 'S1 Ilmu Komputer', start: '2014', end: '2018', gpa: '3.75 / 4.00', body: 'Fokus: distributed systems, machine learning.' }
+    ],
+    skills: 'Python, Go, PostgreSQL, Redis, Kafka, Docker, Kubernetes, AWS, GCP, Linux, REST API, GraphQL',
+    languages: 'Bahasa Indonesia (Native), English (Professional), Mandarin (Beginner)',
+    certifications: 'AWS Certified Solutions Architect — Associate (2024)\nGoogle Cloud Professional Cloud Architect (2023)',
+    references: 'Available upon request.'
+  };
+
+  const EMPTY = {
+    template: 'modern',
+    full_name: '', headline: '', email: '', phone: '', dob: '', nationality: '',
+    address: '', website: '', portfolio: '', summary: '',
+    experience: [{ role: '', company: '', start: '', end: '', location: '', body: '' }],
+    education:  [{ school: '', degree: '', start: '', end: '', gpa: '', body: '' }],
+    skills: '', languages: '', certifications: '', references: '',
+    photoDataUrl: ''
+  };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) return Object.assign({}, EMPTY, JSON.parse(raw));
+    } catch (_) {}
+    return Object.assign({}, EMPTY);
+  }
+  function save(state) {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (_) {}
+  }
+
+  let state = load();
+
+  // ---- Render form ----
+  function renderRowList(containerId, items, fields, removable) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = items.map(function (it, idx) {
+      return '<div class="row-item" data-idx="' + idx + '">'
+        + fields.map(function (f) {
+            const value = escape(it[f.key] || '');
+            if (f.type === 'textarea') {
+              return '<label>' + escape(f.label) + '</label>'
+                + '<textarea data-key="' + f.key + '" rows="' + (f.rows || 3) + '" placeholder="' + escape(f.placeholder || '') + '">' + value + '</textarea>';
+            }
+            return '<label>' + escape(f.label) + '</label>'
+              + '<input type="' + (f.type || 'text') + '" data-key="' + f.key + '" placeholder="' + escape(f.placeholder || '') + '" value="' + value + '" />';
+          }).join('')
+        + (removable ? '<div class="row-actions"><button type="button" data-remove="1">Hapus</button></div>' : '')
+        + '</div>';
+    }).join('');
+  }
+
+  function renderExperience() {
+    renderRowList('exp-list', state.experience, [
+      { key: 'role', label: 'Posisi' },
+      { key: 'company', label: 'Perusahaan' },
+      { key: 'start', label: 'Mulai (mis: 2022-01)' },
+      { key: 'end', label: 'Selesai (mis: Sekarang)' },
+      { key: 'location', label: 'Lokasi (opsional)' },
+      { key: 'body', label: 'Pencapaian / deskripsi', type: 'textarea', rows: 4, placeholder: 'Satu poin per baris. Tonjolkan dampak terukur.' }
+    ], true);
+  }
+  function renderEducation() {
+    renderRowList('edu-list', state.education, [
+      { key: 'school', label: 'Sekolah / Universitas' },
+      { key: 'degree', label: 'Gelar / Jurusan' },
+      { key: 'start', label: 'Mulai' },
+      { key: 'end', label: 'Selesai' },
+      { key: 'gpa', label: 'IPK / GPA (opsional)' },
+      { key: 'body', label: 'Catatan (opsional)', type: 'textarea', rows: 2 }
+    ], true);
+  }
+
+  function renderFormFields() {
+    document.querySelectorAll('[data-field]').forEach(function (el) {
+      const k = el.getAttribute('data-field');
+      el.value = state[k] || '';
+    });
+    document.querySelectorAll('#cv-template-switch button').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-tpl') === state.template);
+    });
+  }
+
+  // ---- Render preview ----
+  function fmtRange(s, e) {
+    const parts = [s, e].filter(Boolean);
+    return parts.join(' – ');
+  }
+  function listChips(text) {
+    return (text || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean)
+      .map(function (s) { return '<span class="chip">' + escape(s) + '</span>'; }).join('');
+  }
+  function listLines(text) {
+    return (text || '').split('\n').map(function (s) { return s.trim(); }).filter(Boolean)
+      .map(function (s) { return '<div>• ' + escape(s) + '</div>'; }).join('');
+  }
+  function previewModern() {
+    const photo = state.photoDataUrl
+      ? '<img src="' + state.photoDataUrl + '" class="cv-avatar" alt="Foto" />'
+      : '<div class="cv-avatar placeholder">Foto profil<br>(opsional)</div>';
+    const exp = (state.experience || []).filter(function (e) { return e.role || e.company; })
+      .map(function (e) {
+        return '<div class="item">'
+          + '<div class="head"><span>' + escape(e.role || '-') + ' · ' + escape(e.company || '') + '</span><span class="when">' + escape(fmtRange(e.start, e.end)) + '</span></div>'
+          + (e.location ? '<div class="sub">' + escape(e.location) + '</div>' : '')
+          + (e.body ? '<div class="body">' + escape(e.body) + '</div>' : '')
+          + '</div>';
+      }).join('');
+    const edu = (state.education || []).filter(function (e) { return e.school || e.degree; })
+      .map(function (e) {
+        return '<div class="item">'
+          + '<div class="head"><span>' + escape(e.school || '-') + '</span><span class="when">' + escape(fmtRange(e.start, e.end)) + '</span></div>'
+          + (e.degree ? '<div class="sub">' + escape(e.degree) + (e.gpa ? ' · IPK ' + escape(e.gpa) : '') + '</div>' : '')
+          + (e.body ? '<div class="body">' + escape(e.body) + '</div>' : '')
+          + '</div>';
+      }).join('');
+    return ''
+      + '<div class="cv-header">'
+      +   photo
+      +   '<div>'
+      +     '<div class="cv-name">' + escape(state.full_name || 'Nama Lengkap Anda') + '</div>'
+      +     '<div class="cv-headline">' + escape(state.headline || 'Posisi / Headline') + '</div>'
+      +     '<div class="cv-contact">'
+      +       (state.email ? '<div>✉ ' + escape(state.email) + '</div>' : '')
+      +       (state.phone ? '<div>☎ ' + escape(state.phone) + '</div>' : '')
+      +       (state.address ? '<div>⌂ ' + escape(state.address) + '</div>' : '')
+      +       (state.dob ? '<div>★ ' + escape(state.dob) + (state.nationality ? ' · ' + escape(state.nationality) : '') + '</div>' : '')
+      +       (state.website ? '<div>🌐 ' + escape(state.website) + '</div>' : '')
+      +       (state.portfolio ? '<div>⌥ ' + escape(state.portfolio) + '</div>' : '')
+      +     '</div>'
+      +   '</div>'
+      + '</div>'
+      + (state.summary ? '<div class="cv-section"><h2>Ringkasan</h2><div class="body" style="white-space:pre-line;">' + escape(state.summary) + '</div></div>' : '')
+      + (exp ? '<div class="cv-section"><h2>Pengalaman Kerja</h2>' + exp + '</div>' : '')
+      + (edu ? '<div class="cv-section"><h2>Pendidikan</h2>' + edu + '</div>' : '')
+      + (state.skills ? '<div class="cv-section"><h2>Skills</h2><div class="cv-skills">' + listChips(state.skills) + '</div></div>' : '')
+      + (state.languages ? '<div class="cv-section"><h2>Bahasa</h2><div class="body" style="white-space:pre-line;">' + escape(state.languages) + '</div></div>' : '')
+      + (state.certifications ? '<div class="cv-section"><h2>Sertifikasi &amp; Penghargaan</h2>' + listLines(state.certifications) + '</div>' : '')
+      + (state.references ? '<div class="cv-section"><h2>Referensi</h2><div class="body" style="white-space:pre-line;">' + escape(state.references) + '</div></div>' : '');
+  }
+  function previewClassic() {
+    const photo = state.photoDataUrl
+      ? '<img src="' + state.photoDataUrl + '" class="cv-avatar" alt="Foto" />'
+      : '<div class="cv-avatar">Foto<br>opsional</div>';
+    const exp = (state.experience || []).filter(function (e) { return e.role || e.company; })
+      .map(function (e) {
+        return '<div class="item">'
+          + '<div class="head"><span>' + escape(e.role || '-') + '</span><span class="when">' + escape(fmtRange(e.start, e.end)) + '</span></div>'
+          + (e.company ? '<div class="sub">' + escape(e.company) + (e.location ? ' · ' + escape(e.location) : '') + '</div>' : '')
+          + (e.body ? '<div class="body">' + escape(e.body) + '</div>' : '')
+          + '</div>';
+      }).join('');
+    const edu = (state.education || []).filter(function (e) { return e.school || e.degree; })
+      .map(function (e) {
+        return '<div class="item">'
+          + '<div class="head"><span>' + escape(e.school || '-') + '</span><span class="when">' + escape(fmtRange(e.start, e.end)) + '</span></div>'
+          + (e.degree ? '<div class="sub">' + escape(e.degree) + (e.gpa ? ' · IPK ' + escape(e.gpa) : '') + '</div>' : '')
+          + (e.body ? '<div class="body">' + escape(e.body) + '</div>' : '')
+          + '</div>';
+      }).join('');
+    const skillsHtml = (state.skills || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean)
+      .map(function (s) { return '<div class="chip">' + escape(s) + '</div>'; }).join('');
+    return ''
+      + '<div class="left">'
+      +   photo
+      +   (state.email || state.phone || state.address ? '<h2>Kontak</h2><div class="contact">' : '')
+      +     (state.email ? '<div>✉ ' + escape(state.email) + '</div>' : '')
+      +     (state.phone ? '<div>☎ ' + escape(state.phone) + '</div>' : '')
+      +     (state.address ? '<div>⌂ ' + escape(state.address) + '</div>' : '')
+      +     (state.dob ? '<div>★ ' + escape(state.dob) + '</div>' : '')
+      +     (state.nationality ? '<div>● ' + escape(state.nationality) + '</div>' : '')
+      +     (state.website ? '<div>🌐 ' + escape(state.website) + '</div>' : '')
+      +     (state.portfolio ? '<div>⌥ ' + escape(state.portfolio) + '</div>' : '')
+      +   (state.email || state.phone || state.address ? '</div>' : '')
+      +   (skillsHtml ? '<h2>Skills</h2><div class="skills">' + skillsHtml + '</div>' : '')
+      +   (state.languages ? '<h2>Bahasa</h2><div class="contact" style="white-space:pre-line;">' + escape(state.languages) + '</div>' : '')
+      +   (state.certifications ? '<h2>Sertifikasi</h2><div class="contact" style="white-space:pre-line;">' + escape(state.certifications) + '</div>' : '')
+      + '</div>'
+      + '<div class="right">'
+      +   '<div class="name">' + escape(state.full_name || 'Nama Lengkap Anda') + '</div>'
+      +   '<div class="headline">' + escape(state.headline || 'Posisi / Headline') + '</div>'
+      +   (state.summary ? '<h2>Ringkasan</h2><div class="body" style="white-space:pre-line;">' + escape(state.summary) + '</div>' : '')
+      +   (exp ? '<h2>Pengalaman</h2>' + exp : '')
+      +   (edu ? '<h2>Pendidikan</h2>' + edu : '')
+      +   (state.references ? '<h2>Referensi</h2><div class="body" style="white-space:pre-line;">' + escape(state.references) + '</div>' : '')
+      + '</div>';
+  }
+  function renderPreview() {
+    const el = document.getElementById('cv-preview');
+    el.className = 'doc-sheet cv-' + (state.template || 'modern');
+    el.innerHTML = state.template === 'classic' ? previewClassic() : previewModern();
+  }
+
+  function renderAll() {
+    renderFormFields();
+    renderExperience();
+    renderEducation();
+    renderPreview();
+  }
+
+  // ---- Wire events ----
+  document.addEventListener('input', function (e) {
+    const t = e.target;
+    if (!t || !t.matches) return;
+    if (t.matches('#cv-form [data-field]')) {
+      state[t.getAttribute('data-field')] = t.value;
+      save(state);
+      renderPreview();
+    } else if (t.matches('#exp-list [data-key], #edu-list [data-key]')) {
+      const row = t.closest('.row-item');
+      const list = t.closest('#exp-list') ? 'experience' : 'education';
+      const idx = parseInt(row.getAttribute('data-idx'), 10);
+      state[list][idx] = state[list][idx] || {};
+      state[list][idx][t.getAttribute('data-key')] = t.value;
+      save(state);
+      renderPreview();
+    }
+  });
+  document.addEventListener('click', function (e) {
+    const t = e.target;
+    if (!t || !t.matches) return;
+    if (t.matches('#cv-template-switch button')) {
+      state.template = t.getAttribute('data-tpl');
+      save(state); renderAll();
+    } else if (t.id === 'add-exp') {
+      state.experience.push({ role: '', company: '', start: '', end: '', location: '', body: '' });
+      save(state); renderExperience(); renderPreview();
+    } else if (t.id === 'add-edu') {
+      state.education.push({ school: '', degree: '', start: '', end: '', gpa: '', body: '' });
+      save(state); renderEducation(); renderPreview();
+    } else if (t.matches('[data-remove]')) {
+      const row = t.closest('.row-item');
+      const list = t.closest('#exp-list') ? 'experience' : 'education';
+      const idx = parseInt(row.getAttribute('data-idx'), 10);
+      state[list].splice(idx, 1);
+      if (state[list].length === 0) state[list].push({});
+      save(state);
+      (list === 'experience' ? renderExperience : renderEducation)();
+      renderPreview();
+    } else if (t.id === 'btn-print') {
+      window.print();
+    } else if (t.id === 'btn-load-sample') {
+      state = JSON.parse(JSON.stringify(SAMPLE));
+      state.experience = SAMPLE.experience.slice();
+      state.education = SAMPLE.education.slice();
+      save(state); renderAll();
+    } else if (t.id === 'btn-reset') {
+      if (confirm('Kosongkan semua data CV?')) {
+        state = Object.assign({}, EMPTY, { experience: [{}], education: [{}] });
+        save(state); renderAll();
+      }
+    }
+  });
+  document.getElementById('cv-photo').addEventListener('change', function (e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (file.size > 4 * 1024 * 1024) {
+      alert('Foto terlalu besar (maks 4 MB).');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function (ev) {
+      state.photoDataUrl = ev.target.result;
+      save(state); renderPreview();
+    };
+    reader.readAsDataURL(file);
+  });
+
+  renderAll();
+})();
+</script>
+{% endblock %}
